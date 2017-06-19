@@ -551,7 +551,7 @@ void CRenderManager::CreateRenderer()
 #if defined(HAS_DX)
       else if (0)
       {
-        m_pRenderer = new CWinRenderer();
+        m_pRenderer = new CWinRenderer;
       }
 #endif
 #if defined(HAS_LIBAMCODEC)
