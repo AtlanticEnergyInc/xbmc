@@ -301,6 +301,9 @@ void CWinRenderer::PreInit()
   m_bConfigured = false;
   UnInit();
 
+  m_formats.clear();
+  m_formats.push_back(AV_PIX_FMT_YUV420P);
+
   m_iRequestedMethod = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD);
 
   if (g_advancedSettings.m_DXVAForceProcessorRenderer
@@ -312,6 +315,22 @@ void CWinRenderer::PreInit()
       CLog::Log(LOGNOTICE, "CWinRenderer::Preinit - could not init DXVA processor - skipping");
       SAFE_DELETE(m_processor);
     }
+    else
+      m_processor->ApplySupportedFormats(m_formats);
+  }
+
+  // allow other color spaces besides YV12 in case DXVA rendering is not used or not available
+  if (!m_processor || (m_iRequestedMethod != RENDER_METHOD_DXVA))
+  {
+    if ( g_Windowing.IsFormatSupport(DXGI_FORMAT_R16_UNORM, D3D11_FORMAT_SUPPORT_SHADER_SAMPLE)
+      || g_Windowing.IsFormatSupport(DXGI_FORMAT_R16_UNORM, D3D11_FORMAT_SUPPORT_SHADER_LOAD))
+    {
+      m_formats.push_back(AV_PIX_FMT_YUV420P10);
+      m_formats.push_back(AV_PIX_FMT_YUV420P16);
+    }
+    m_formats.push_back(AV_PIX_FMT_NV12);
+    m_formats.push_back(AV_PIX_FMT_YUYV422);
+    m_formats.push_back(AV_PIX_FMT_UYVY422);
   }
 }
 
@@ -1019,13 +1038,7 @@ bool CWinRenderer::ConfigChanged(const VideoPicture& picture)
 CRenderInfo CWinRenderer::GetRenderInfo()
 {
   CRenderInfo info;
-  info.formats = 
-  { 
-    AV_PIX_FMT_D3D11VA_VLD, 
-    AV_PIX_FMT_YUV420P, 
-    AV_PIX_FMT_YUV420P10, 
-    AV_PIX_FMT_YUV420P16 
-  };
+  info.formats = m_formats;
   info.max_buffer_size = NUM_BUFFERS;
   if (m_renderMethod == RENDER_DXVA && m_processor)
   {
