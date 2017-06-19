@@ -669,10 +669,8 @@ bool CSurfaceContext::HasRefs()
 // DXVA CDXVABufferPool
 //-----------------------------------------------------------------------------
 
-CDXVABufferPool::CDXVABufferPool(CSurfaceContext* context)
+CDXVABufferPool::CDXVABufferPool()
 {
-  m_context = context->Acquire();
-
   for (unsigned int i = 0; i < 7; i++)
   {
     auto pic = new CDXVAVideoBuffer(i);
@@ -689,7 +687,6 @@ CDXVABufferPool::~CDXVABufferPool()
     delete pic;
   }
   m_all.clear();
-  m_context->Release();
 }
 
 CVideoBuffer* CDXVABufferPool::Get()
@@ -712,7 +709,7 @@ void CDXVABufferPool::Return(int id)
   CSingleLock lock(m_critSection);
 
   auto buf = m_all[id];
-  m_context->ClearRender(buf->view);
+  SAFE_RELEASE(buf->picture);
 
   auto it = m_used.begin();
   while (it != m_used.end())
@@ -794,7 +791,6 @@ void CDecoder::Close()
   SAFE_RELEASE(m_decoder);
   SAFE_RELEASE(m_vcontext);
   SAFE_RELEASE(m_surface_context);
-  SAFE_RELEASE(m_presentPicture);
   memset(&m_format, 0, sizeof(m_format));
 
   if (m_dxva_context)
@@ -964,7 +960,7 @@ bool CDecoder::Open(AVCodecContext *avctx, AVCodecContext* mainctx, enum AVPixel
     return false;
 
   m_surface_context = new CSurfaceContext();
-  m_bufferPool = std::make_shared<CDXVABufferPool>(m_surface_context);
+  m_bufferPool = std::make_shared<CDXVABufferPool>();
 
   if(!OpenDecoder())
     return false;
@@ -1017,11 +1013,13 @@ CDVDVideoCodec::VCReturn CDecoder::Decode(AVCodecContext* avctx, AVFrame* frame)
   {
     if (m_surface_context->IsValid(reinterpret_cast<ID3D11View*>(frame->data[3])))
     {
-      SAFE_RELEASE(m_presentPicture);
+      auto picture = new CRenderPicture(m_surface_context);
+      picture->view = reinterpret_cast<ID3D11View*>(frame->data[3]);
+      picture->format = m_format.OutputFormat;
+      m_surface_context->MarkRender(picture->view);
+
       m_presentPicture = m_bufferPool->GetDX();
-      m_presentPicture->view = reinterpret_cast<ID3D11View*>(frame->data[3]);
-      m_presentPicture->format = m_format.OutputFormat;
-      m_surface_context->MarkRender(m_presentPicture->view);
+      m_presentPicture->picture = picture;
       return CDVDVideoCodec::VC_PICTURE;
     }
     CLog::Log(LOGWARNING, "DXVA - ignoring invalid surface");

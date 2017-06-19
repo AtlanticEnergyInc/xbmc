@@ -66,17 +66,6 @@ protected:
   CCriticalSection m_section;
 };
 
-class CDXVAVideoBuffer : public CVideoBuffer
-{
-public:
-  CDXVAVideoBuffer(int id) : CVideoBuffer(id), view(nullptr), format(DXGI_FORMAT_UNKNOWN)
-  {
-    m_pixFormat = AV_PIX_FMT_D3D11VA_VLD;
-  }
-  ID3D11View* view;
-  DXGI_FORMAT format;
-};
-
 class CRenderPicture
   : public IDVDResourceCounted<CRenderPicture>
 {
@@ -90,10 +79,20 @@ protected:
   CSurfaceContext *surface_context;
 };
 
+class CDXVAVideoBuffer : public CVideoBuffer
+{
+public:
+  CDXVAVideoBuffer(int id) : CVideoBuffer(id), picture(nullptr)
+  {
+    m_pixFormat = AV_PIX_FMT_D3D11VA_VLD;
+  }
+  CRenderPicture* picture;
+};
+
 class CDXVABufferPool : public IVideoBufferPool
 {
 public:
-  CDXVABufferPool(CSurfaceContext* context);
+  CDXVABufferPool();
   virtual ~CDXVABufferPool();
 
   CVideoBuffer* Get() override;
@@ -105,7 +104,6 @@ private:
   std::vector<CDXVAVideoBuffer*> m_all;
   std::deque<int> m_used;
   std::deque<int> m_free;
-  CSurfaceContext* m_context;
 };
 
 class CDecoder;

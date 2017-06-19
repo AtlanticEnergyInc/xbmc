@@ -72,7 +72,6 @@ void CProcessorHD::UnInit()
   CSingleLock lock(m_section);
   Close();
   SAFE_RELEASE(m_pVideoDevice);
-  m_formats.clear();
 }
 
 void CProcessorHD::Close()
@@ -113,19 +112,8 @@ bool CProcessorHD::PreInit()
 
   memset(&m_texDesc, 0, sizeof(D3D11_TEXTURE2D_DESC));
 
-  if (IsFormatSupported(DXGI_FORMAT_P010, D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT_INPUT))
-    m_formats.push_back(AV_PIX_FMT_YUV420P10);
-
-  if (IsFormatSupported(DXGI_FORMAT_P016, D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT_INPUT))
-    m_formats.push_back(AV_PIX_FMT_YUV420P16);
-
   SAFE_RELEASE(m_pEnumerator);
   return true;
-}
-
-void CProcessorHD::ApplySupportedFormats(std::vector<AVPixelFormat> &formats)
-{
-  formats.insert(formats.end(), m_formats.begin(), m_formats.end());
 }
 
 bool CProcessorHD::InitProcessor()
@@ -422,8 +410,8 @@ CRenderPicture *CProcessorHD::Convert(const VideoPicture &picture) const
 
   if (format == AV_PIX_FMT_D3D11VA_VLD)
   {
-    CRenderPicture* pic = dynamic_cast<CRenderPicture*>(picture.videoBuffer);
-    return pic;
+    CDXVAVideoBuffer* pic = dynamic_cast<CDXVAVideoBuffer*>(picture.videoBuffer);
+    return pic->picture->Acquire();
   }
 
   ID3D11View *pView = m_context->GetFree(nullptr);

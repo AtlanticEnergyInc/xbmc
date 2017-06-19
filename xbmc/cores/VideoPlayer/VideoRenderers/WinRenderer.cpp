@@ -201,7 +201,7 @@ bool CWinRenderer::Configure(const VideoPicture &picture, float fps, unsigned fl
   if (m_format == AV_PIX_FMT_D3D11VA_VLD)
   {
     DXVA::CDXVAVideoBuffer *dxvaPic = dynamic_cast<DXVA::CDXVAVideoBuffer*>(picture.videoBuffer);
-    m_dxva_format = dxvaPic->format;
+    m_dxva_format = dxvaPic->picture->format;
   }
 
   // calculate the input frame aspect ratio
@@ -301,9 +301,6 @@ void CWinRenderer::PreInit()
   m_bConfigured = false;
   UnInit();
 
-  m_formats.clear();
-  m_formats.push_back(AV_PIX_FMT_YUV420P);
-
   m_iRequestedMethod = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_VIDEOPLAYER_RENDERMETHOD);
 
   if (g_advancedSettings.m_DXVAForceProcessorRenderer
@@ -315,22 +312,6 @@ void CWinRenderer::PreInit()
       CLog::Log(LOGNOTICE, "CWinRenderer::Preinit - could not init DXVA processor - skipping");
       SAFE_DELETE(m_processor);
     }
-    else
-      m_processor->ApplySupportedFormats(m_formats);
-  }
-
-  // allow other color spaces besides YV12 in case DXVA rendering is not used or not available
-  if (!m_processor || (m_iRequestedMethod != RENDER_METHOD_DXVA))
-  {
-    if ( g_Windowing.IsFormatSupport(DXGI_FORMAT_R16_UNORM, D3D11_FORMAT_SUPPORT_SHADER_SAMPLE)
-      || g_Windowing.IsFormatSupport(DXGI_FORMAT_R16_UNORM, D3D11_FORMAT_SUPPORT_SHADER_LOAD))
-    {
-      m_formats.push_back(AV_PIX_FMT_YUV420P10);
-      m_formats.push_back(AV_PIX_FMT_YUV420P16);
-    }
-    m_formats.push_back(AV_PIX_FMT_NV12);
-    m_formats.push_back(AV_PIX_FMT_YUYV422);
-    m_formats.push_back(AV_PIX_FMT_UYVY422);
   }
 }
 
@@ -1035,10 +1016,28 @@ bool CWinRenderer::ConfigChanged(const VideoPicture& picture)
   return false;
 }
 
+bool CWinRenderer::HandlesVideoBuffer(CVideoBuffer* buffer)
+{
+  AVPixelFormat format = buffer->GetFormat();
+  if ( format == AV_PIX_FMT_D3D11VA_VLD
+    || format == AV_PIX_FMT_YUV420P
+    || format == AV_PIX_FMT_YUV420P10
+    || format == AV_PIX_FMT_YUV420P16)
+    return true;
+
+  return false;
+}
+
 CRenderInfo CWinRenderer::GetRenderInfo()
 {
   CRenderInfo info;
-  info.formats = m_formats;
+  info.formats = 
+  { 
+    AV_PIX_FMT_D3D11VA_VLD, 
+    AV_PIX_FMT_YUV420P, 
+    AV_PIX_FMT_YUV420P10, 
+    AV_PIX_FMT_YUV420P16 
+  };
   info.max_buffer_size = NUM_BUFFERS;
   if (m_renderMethod == RENDER_DXVA && m_processor)
   {
@@ -1263,7 +1262,7 @@ bool YUVBuffer::CopyFromPicture(const VideoPicture &picture)
   if (picture.videoBuffer->GetFormat() == AV_PIX_FMT_D3D11VA_VLD)
   {
     DXVA::CDXVAVideoBuffer *hwpic = static_cast<DXVA::CDXVAVideoBuffer*>(picture.videoBuffer);
-    return CopyFromDXVA(reinterpret_cast<ID3D11VideoDecoderOutputView*>(hwpic->view));
+    return CopyFromDXVA(reinterpret_cast<ID3D11VideoDecoderOutputView*>(hwpic->picture->view));
   }
   return false;
 }

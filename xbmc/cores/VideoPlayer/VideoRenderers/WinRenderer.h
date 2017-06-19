@@ -21,7 +21,6 @@
  */
 
 #if !defined(TARGET_POSIX) && !defined(HAS_GL)
-#include <vector>
 
 #include "BaseRenderer.h"
 #include "HwDecRender/DXVAHD.h"
@@ -180,6 +179,8 @@ public:
   bool WantsDoublePass() override;
   bool ConfigChanged(const VideoPicture& picture) override;
 
+  static bool HandlesVideoBuffer(CVideoBuffer *buffer);
+
 protected:
   void PreInit();
   void Render(DWORD flags);
@@ -205,7 +206,6 @@ protected:
   SVideoBuffer        *m_VideoBuffers[NUM_BUFFERS];
   RenderMethod         m_renderMethod;
   DXVA::CProcessorHD  *m_processor;
-  std::vector<AVPixelFormat> m_formats;
 
   // software scale libraries (fallback if required pixel shaders version is not available)
   struct SwsContext   *m_sw_scale_ctx;
