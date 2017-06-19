@@ -83,12 +83,15 @@ enum RenderMethod
 
 struct SVideoBuffer
 {
+  SVideoBuffer() : videoBuffer(nullptr) {}
   virtual ~SVideoBuffer() {}
   virtual void Release() {};            // Release any allocated resource
   virtual void StartDecode() {};        // Prepare the buffer to receive data from VideoPlayer
   virtual void StartRender() {};        // VideoPlayer finished filling the buffer with data
   virtual void Clear() {};              // clear the buffer with solid black
   virtual bool IsReadyToRender() { return true; };
+
+  CVideoBuffer* videoBuffer;
 };
 
 // YV12 decoder textures

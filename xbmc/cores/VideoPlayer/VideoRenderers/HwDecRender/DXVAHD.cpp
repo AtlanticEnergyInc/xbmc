@@ -194,7 +194,7 @@ bool CProcessorHD::InitProcessor()
 
   CLog::Log(LOGDEBUG, "%s: Selected video processor allows %d future frames and %d past frames.", __FUNCTION__, m_rateCaps.FutureFrames, m_rateCaps.PastFrames);
 
-  m_size = m_max_back_refs + 1 + m_max_fwd_refs + 2;  // refs + 1 display + 2 safety frames
+  m_size = m_max_back_refs + 1 + m_max_fwd_refs + 3;  // refs + 1 display + 3 safety frames
 
   // Get the image filtering capabilities.
   for (long i = 0; i < NUM_FILTERS; i++)

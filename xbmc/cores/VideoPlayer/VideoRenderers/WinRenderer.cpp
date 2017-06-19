@@ -251,6 +251,8 @@ void CWinRenderer::AddVideoPicture(const VideoPicture &picture, int index)
       return;
     buf->CopyFromPicture(picture);
   }
+  m_VideoBuffers[index]->videoBuffer = picture.videoBuffer;
+  m_VideoBuffers[index]->videoBuffer->Acquire();
 }
 
 void CWinRenderer::Reset()
@@ -1054,6 +1056,8 @@ void CWinRenderer::ReleaseBuffer(int idx)
 {
   if (m_renderMethod == RENDER_DXVA && m_VideoBuffers[idx])
     SAFE_RELEASE(reinterpret_cast<DXVABuffer*>(m_VideoBuffers[idx])->pic);
+
+  SAFE_RELEASE(m_VideoBuffers[idx]->videoBuffer);
 }
 
 bool CWinRenderer::NeedBuffer(int idx)
