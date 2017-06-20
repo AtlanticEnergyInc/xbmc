@@ -37,6 +37,7 @@
 #include "VideoShaders/WinVideoFilter.h"
 #include "platform/win32/WIN32Util.h"
 #include "windowing/WindowingFactory.h"
+#include <ppltasks.h>
 
 typedef struct {
   RenderMethod  method;
@@ -223,16 +224,6 @@ int CWinRenderer::NextYV12Texture()
     return -1;
 }
 
-bool CWinRenderer::IsPictureHW(const VideoPicture &picture)
-{
-  if (m_renderMethod == RENDER_DXVA
-    || picture.videoBuffer->GetFormat() == AV_PIX_FMT_D3D11VA_VLD)
-  {
-    return true;
-  }
-  return false;
-}
-
 void CWinRenderer::AddVideoPicture(const VideoPicture &picture, int index)
 {
   if (m_renderMethod == RENDER_DXVA)
@@ -244,11 +235,12 @@ void CWinRenderer::AddVideoPicture(const VideoPicture &picture, int index)
     buf->pictureFlags = picture.iFlags;
     m_frameIdx += 2;
   }
-  else if (picture.videoBuffer->GetFormat() == AV_PIX_FMT_D3D11VA_VLD)
+  else
   {
     YUVBuffer *buf = reinterpret_cast<YUVBuffer*>(m_VideoBuffers[index]);
     if (buf->IsReadyToRender())
       return;
+
     buf->CopyFromPicture(picture);
   }
   m_VideoBuffers[index]->videoBuffer = picture.videoBuffer;
@@ -1263,10 +1255,55 @@ bool YUVBuffer::IsReadyToRender()
 
 bool YUVBuffer::CopyFromPicture(const VideoPicture &picture)
 {
-  if (picture.videoBuffer->GetFormat() == AV_PIX_FMT_D3D11VA_VLD)
+  AVPixelFormat format = picture.videoBuffer->GetFormat();
+  if (format == AV_PIX_FMT_D3D11VA_VLD)
   {
     DXVA::CDXVAVideoBuffer *hwpic = static_cast<DXVA::CDXVAVideoBuffer*>(picture.videoBuffer);
     return CopyFromDXVA(reinterpret_cast<ID3D11VideoDecoderOutputView*>(hwpic->picture->view));
+  }
+
+  if ( format == AV_PIX_FMT_YUV420P 
+    || format == AV_PIX_FMT_YUV420P10
+    || format == AV_PIX_FMT_YUV420P16
+    || format == AV_PIX_FMT_NV12)
+  {
+    uint8_t* bufData[3];
+    int srcLines[3];
+    picture.videoBuffer->GetPlanes(bufData);
+    picture.videoBuffer->GetStrides(srcLines);
+    std::vector<Concurrency::task<void>> tasks;
+
+    for(unsigned plane = 0; plane < m_activeplanes; ++plane)
+    {
+      uint8_t* dst = static_cast<uint8_t*>(planes[plane].rect.pData);
+      uint8_t* src = bufData[plane];
+      int srcLine = srcLines[plane];
+      int dstLine = planes[plane].rect.RowPitch;
+      int height = plane == 0 ? picture.iHeight : picture.iHeight >> 1;
+
+      auto task = Concurrency::create_task([src, dst, srcLine, dstLine, height]()
+      {
+        if (srcLine == dstLine)
+        {
+          memcpy(dst, src, srcLine * height);
+        }
+        else
+        {
+          uint8_t* s = src;
+          uint8_t* d = dst;
+          for(unsigned i = 0; i < height; ++i)
+          {
+            memcpy(d, s, std::min(srcLine, dstLine));
+            d += dstLine;
+            s += srcLine;
+          }
+        }
+      });
+      tasks.push_back(task);
+    }
+
+    when_all(tasks.begin(), tasks.end()).wait();//.then([this]() { StartRender(); });
+    return true;
   }
   return false;
 }
