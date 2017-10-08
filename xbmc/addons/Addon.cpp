@@ -28,6 +28,7 @@
 
 #include "AddonManager.h"
 #include "addons/Service.h"
+#include "addons/settings/AddonSettings.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
 #include "guilib/LocalizeStrings.h"
@@ -88,7 +89,7 @@ bool CAddon::SettingsLoaded() const
   return m_settings != nullptr && m_settings->IsLoaded();
 }
 
-bool CAddon::LoadSettings(bool bForce /* = false */)
+bool CAddon::LoadSettings(bool bForce, bool loadUserSettings /* = true */)
 {
   if (SettingsInitialized() && !bForce)
     return true;
@@ -128,7 +129,8 @@ bool CAddon::LoadSettings(bool bForce /* = false */)
   m_loadSettingsFailed = false;
 
   // load user settings / values
-  LoadUserSettings();
+  if (loadUserSettings)
+    LoadUserSettings();
 
   return true;
 }
@@ -201,7 +203,7 @@ void CAddon::SaveSettings(void)
   m_hasUserSettings = true;
   
   //push the settings changes to the running addon instance
-  CAddonMgr::GetInstance().ReloadSettings(ID());
+  CServiceBroker::GetAddonMgr().ReloadSettings(ID());
 #ifdef HAS_PYTHON
   g_pythonParser.OnSettingsChanged(ID());
 #endif
@@ -391,49 +393,18 @@ AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
   return AddonVersion("0.0.0");
 }
 
-void OnEnabled(const std::string& id)
+void OnEnabled(const AddonPtr& addon)
 {
-  // If the addon is a special, call enabled handler
-  AddonPtr addon;
-  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL))
-    return addon->OnEnabled();
-
-  if (CAddonMgr::GetInstance().ServicesHasStarted())
-  {
-    if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE))
-      std::static_pointer_cast<CService>(addon)->Start();
-  }
-
-  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_REPOSITORY))
-    CRepositoryUpdater::GetInstance().ScheduleUpdate(); //notify updater there is a new addon
+  addon->OnEnabled();
 }
 
-void OnDisabled(const std::string& id)
+void OnDisabled(const AddonPtr& addon)
 {
-
-  AddonPtr addon;
-  if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_PVRDLL, false))
-    return addon->OnDisabled();
-
-  if (CAddonMgr::GetInstance().ServicesHasStarted())
-  {
-    if (CAddonMgr::GetInstance().GetAddon(id, addon, ADDON_SERVICE, false))
-      std::static_pointer_cast<CService>(addon)->Stop();
-  }
+  addon->OnDisabled();
 }
 
 void OnPreInstall(const AddonPtr& addon)
 {
-  //Before installing we need to stop/unregister any local addon
-  //that have this id, regardless of what the 'new' addon is.
-  AddonPtr localAddon;
-
-  if (CAddonMgr::GetInstance().ServicesHasStarted())
-  {
-    if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
-      std::static_pointer_cast<CService>(localAddon)->Stop();
-  }
-
   //Fallback to the pre-install callback in the addon.
   //! @bug If primary extension point have changed we're calling the wrong method.
   addon->OnPreInstall();
@@ -441,29 +412,11 @@ void OnPreInstall(const AddonPtr& addon)
 
 void OnPostInstall(const AddonPtr& addon, bool update, bool modal)
 {
-  AddonPtr localAddon;
-  if (CAddonMgr::GetInstance().ServicesHasStarted())
-  {
-    if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
-      std::static_pointer_cast<CService>(localAddon)->Start();
-  }
-
-  if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_REPOSITORY))
-    CRepositoryUpdater::GetInstance().ScheduleUpdate(); //notify updater there is a new addon or version
-
   addon->OnPostInstall(update, modal);
 }
 
 void OnPreUnInstall(const AddonPtr& addon)
 {
-  AddonPtr localAddon;
-
-  if (CAddonMgr::GetInstance().ServicesHasStarted())
-  {
-    if (CAddonMgr::GetInstance().GetAddon(addon->ID(), localAddon, ADDON_SERVICE))
-      std::static_pointer_cast<CService>(localAddon)->Stop();
-  }
-
   addon->OnPreUnInstall();
 }
 

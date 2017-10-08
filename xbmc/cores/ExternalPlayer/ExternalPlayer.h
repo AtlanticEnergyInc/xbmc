@@ -20,6 +20,7 @@
  *
  */
 
+#include "FileItem.h"
 #include "cores/IPlayer.h"
 #include "threads/Thread.h"
 #include <string>
@@ -32,66 +33,63 @@ class CExternalPlayer : public IPlayer, public CThread
 public:
   enum WARP_CURSOR { WARP_NONE = 0, WARP_TOP_LEFT, WARP_TOP_RIGHT, WARP_BOTTOM_RIGHT, WARP_BOTTOM_LEFT, WARP_CENTER };
 
-  CExternalPlayer(IPlayerCallback& callback);
-  virtual ~CExternalPlayer();
-  virtual bool Initialize(TiXmlElement* pConfig) override;
-  virtual bool OpenFile(const CFileItem& file, const CPlayerOptions &options) override;
-  virtual bool CloseFile(bool reopen = false) override;
-  virtual bool IsPlaying() const override;
-  virtual void Pause() override;
-  virtual bool HasVideo() const override;
-  virtual bool HasAudio() const override;
-  virtual bool CanSeek() override;
-  virtual void Seek(bool bPlus, bool bLargeStep, bool bChapterOverride) override;
-  virtual void SeekPercentage(float iPercent) override;
-  virtual float GetPercentage() override;
-  virtual void SetVolume(float volume) override {}
-  virtual void SetDynamicRangeCompression(long drc) override {}
-  virtual bool CanRecord() override { return false; }
-  virtual bool IsRecording() override { return false; }
-  virtual bool Record(bool bOnOff) override { return false; }
-  virtual void SetAVDelay(float fValue = 0.0f) override;
-  virtual float GetAVDelay() override;
+  explicit CExternalPlayer(IPlayerCallback& callback);
+  ~CExternalPlayer() override;
+  bool Initialize(TiXmlElement* pConfig) override;
+  bool OpenFile(const CFileItem& file, const CPlayerOptions &options) override;
+  bool CloseFile(bool reopen = false) override;
+  bool IsPlaying() const override;
+  void Pause() override;
+  bool HasVideo() const override;
+  bool HasAudio() const override;
+  bool CanSeek() override;
+  void Seek(bool bPlus, bool bLargeStep, bool bChapterOverride) override;
+  void SeekPercentage(float iPercent) override;
+  void SetVolume(float volume) override {}
+  void SetDynamicRangeCompression(long drc) override {}
+  bool CanRecord() override { return false; }
+  bool IsRecording() override { return false; }
+  bool Record(bool bOnOff) override { return false; }
+  void SetAVDelay(float fValue = 0.0f) override;
+  float GetAVDelay() override;
 
-  virtual void SetSubTitleDelay(float fValue = 0.0f) override;
-  virtual float GetSubTitleDelay() override;
+  void SetSubTitleDelay(float fValue = 0.0f) override;
+  float GetSubTitleDelay() override;
 
-  virtual void SeekTime(int64_t iTime) override;
-  virtual int64_t GetTime() override;
-  virtual int64_t GetTotalTime() override;
-  virtual void SetSpeed(float iSpeed) override;
-  virtual float GetSpeed() override;
-  virtual void DoAudioWork() override {}
-  
-  virtual std::string GetPlayerState() override;
-  virtual bool SetPlayerState(const std::string& state) override;
-  
+  void SeekTime(int64_t iTime) override;
+  void SetSpeed(float speed) override;
+  void DoAudioWork() override {}
+
+  std::string GetPlayerState() override;
+  bool SetPlayerState(const std::string& state) override;
+
 #if defined(TARGET_WINDOWS)
-  BOOL ExecuteAppW32(const char* strPath, const char* strSwitches);
+  bool ExecuteAppW32(const char* strPath, const char* strSwitches);
   //static void CALLBACK AppFinished(void* closure, BOOLEAN TimerOrWaitFired);
 #elif defined(TARGET_ANDROID)
-  BOOL ExecuteAppAndroid(const char* strSwitches,const char* strPath);
+  bool ExecuteAppAndroid(const char* strSwitches,const char* strPath);
 #elif defined(TARGET_POSIX)
-  BOOL ExecuteAppLinux(const char* strSwitches);
+  bool ExecuteAppLinux(const char* strSwitches);
 #endif
 
 private:
   void GetCustomRegexpReplacers(TiXmlElement *pRootElement, std::vector<std::string>& settings);
-  virtual void Process() override;
+  void Process() override;
+  float GetPercentage();
 
   bool m_bAbortRequest;
   bool m_bIsPlaying;
   bool m_paused;
   int64_t m_playbackStartTime;
-  int m_speed;
+  float m_speed;
   int m_totalTime;
   int m_time;
   std::string m_launchFilename;
-  HWND m_hwndXbmc; 
+  HWND m_hwndXbmc;
 #if defined(TARGET_WINDOWS)
   POINT m_ptCursorpos;
   PROCESS_INFORMATION m_processInfo;
-#endif 
+#endif
   CGUIDialogOK* m_dialog;
   int m_xPos;
   int m_yPos;
@@ -104,4 +102,5 @@ private:
   WARP_CURSOR m_warpcursor;
   int m_playCountMinTime;
   std::vector<std::string> m_filenameReplacers;
+  CFileItem m_file;
 };

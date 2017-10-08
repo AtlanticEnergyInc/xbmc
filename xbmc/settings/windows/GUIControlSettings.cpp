@@ -23,12 +23,12 @@
 #include <set>
 #include <utility>
 
+#include "ServiceBroker.h"
 #include "addons/AddonManager.h"
 #include "addons/GUIWindowAddonBrowser.h"
 #include "addons/settings/SettingUrlEncodedString.h"
 #include "dialogs/GUIDialogFileBrowser.h"
 #include "dialogs/GUIDialogNumeric.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "dialogs/GUIDialogSlider.h"
 #include "FileItem.h"
@@ -250,8 +250,7 @@ CGUIControlRadioButtonSetting::CGUIControlRadioButtonSetting(CGUIRadioButtonCont
   Update();
 }
 
-CGUIControlRadioButtonSetting::~CGUIControlRadioButtonSetting()
-{ }
+CGUIControlRadioButtonSetting::~CGUIControlRadioButtonSetting() = default;
 
 bool CGUIControlRadioButtonSetting::OnClick()
 {
@@ -281,8 +280,7 @@ CGUIControlSpinExSetting::CGUIControlSpinExSetting(CGUISpinControlEx *pSpin, int
   FillControl();
 }
 
-CGUIControlSpinExSetting::~CGUIControlSpinExSetting()
-{ }
+CGUIControlSpinExSetting::~CGUIControlSpinExSetting() = default;
 
 bool CGUIControlSpinExSetting::OnClick()
 {
@@ -429,8 +427,7 @@ CGUIControlListSetting::CGUIControlListSetting(CGUIButtonControl *pButton, int i
   Update();
 }
 
-CGUIControlListSetting::~CGUIControlListSetting()
-{ }
+CGUIControlListSetting::~CGUIControlListSetting() = default;
 
 bool CGUIControlListSetting::OnClick()
 {
@@ -603,8 +600,7 @@ CGUIControlButtonSetting::CGUIControlButtonSetting(CGUIButtonControl *pButton, i
   Update();
 }
 
-CGUIControlButtonSetting::~CGUIControlButtonSetting()
-{ }
+CGUIControlButtonSetting::~CGUIControlButtonSetting() = default;
 
 bool CGUIControlButtonSetting::OnClick()
 {
@@ -638,7 +634,7 @@ bool CGUIControlButtonSetting::OnClick()
       SYSTEMTIME systemdate;
       settingDate->GetDate().GetAsSystemTime(systemdate);
       if (CGUIDialogNumeric::ShowAndGetDate(systemdate, Localize(buttonControl->GetHeading())))
-        SetValid(settingDate->SetDate(systemdate));
+        SetValid(settingDate->SetDate(CDateTime(systemdate)));
     }
     else if (controlFormat == "time")
     {
@@ -655,7 +651,7 @@ bool CGUIControlButtonSetting::OnClick()
       }
       */
       if (CGUIDialogNumeric::ShowAndGetTime(systemtime, Localize(buttonControl->GetHeading())))
-        SetValid(settingTime->SetTime(systemtime));
+        SetValid(settingTime->SetTime(CDateTime(systemtime)));
     }
     else if (controlFormat == "action")
     {
@@ -722,7 +718,7 @@ void CGUIControlButtonSetting::Update(bool updateDisplayOnly /* = false */)
         if (controlFormat == "addon")
         {
           ADDON::AddonPtr addon;
-          if (ADDON::CAddonMgr::GetInstance().GetAddon(strValue, addon))
+          if (CServiceBroker::GetAddonMgr().GetAddon(strValue, addon))
             strText = addon->Name();
           if (strText.empty())
             strText = g_localizeStrings.Get(231); // None
@@ -907,8 +903,7 @@ CGUIControlEditSetting::CGUIControlEditSetting(CGUIEditControl *pEdit, int id, s
   m_pEdit->SetInputValidation(InputValidation, this);
 }
 
-CGUIControlEditSetting::~CGUIControlEditSetting()
-{ }
+CGUIControlEditSetting::~CGUIControlEditSetting() = default;
 
 bool CGUIControlEditSetting::OnClick()
 {
@@ -999,8 +994,7 @@ CGUIControlSliderSetting::CGUIControlSliderSetting(CGUISettingsSliderControl *pS
   Update();
 }
 
-CGUIControlSliderSetting::~CGUIControlSliderSetting()
-{ }
+CGUIControlSliderSetting::~CGUIControlSliderSetting() = default;
 
 bool CGUIControlSliderSetting::OnClick()
 {
@@ -1143,8 +1137,7 @@ CGUIControlRangeSetting::CGUIControlRangeSetting(CGUISettingsSliderControl *pSli
   Update();
 }
 
-CGUIControlRangeSetting::~CGUIControlRangeSetting()
-{ }
+CGUIControlRangeSetting::~CGUIControlRangeSetting() = default;
 
 bool CGUIControlRangeSetting::OnClick()
 {
@@ -1226,8 +1219,8 @@ void CGUIControlRangeSetting::Update(bool updateDisplayOnly /* = false */)
 
       if (controlFormat == "date" || controlFormat == "time")
       {
-        CDateTime dateLower = (time_t)valueLower;
-        CDateTime dateUpper = (time_t)valueUpper;
+        CDateTime dateLower((time_t)valueLower);
+        CDateTime dateUpper((time_t)valueUpper);
 
         if (controlFormat == "date")
         {
@@ -1310,8 +1303,7 @@ CGUIControlSeparatorSetting::CGUIControlSeparatorSetting(CGUIImage *pImage, int 
   m_pImage->SetID(id);
 }
 
-CGUIControlSeparatorSetting::~CGUIControlSeparatorSetting()
-{ }
+CGUIControlSeparatorSetting::~CGUIControlSeparatorSetting() = default;
 
 CGUIControlGroupTitleSetting::CGUIControlGroupTitleSetting(CGUILabelControl *pLabel, int id, ILocalizer* localizer)
   : CGUIControlBaseSetting(id, NULL, localizer)
@@ -1323,8 +1315,7 @@ CGUIControlGroupTitleSetting::CGUIControlGroupTitleSetting(CGUILabelControl *pLa
   m_pLabel->SetID(id);
 }
 
-CGUIControlGroupTitleSetting::~CGUIControlGroupTitleSetting()
-{ }
+CGUIControlGroupTitleSetting::~CGUIControlGroupTitleSetting() = default;
 
 CGUIControlLabelSetting::CGUIControlLabelSetting(CGUIButtonControl *pButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer)
   : CGUIControlBaseSetting(id, pSetting, localizer)

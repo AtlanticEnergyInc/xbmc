@@ -131,7 +131,7 @@ namespace ADDON
 
   public:
     CGUIAddonWindow(int id, const std::string& strXML, ADDON::CAddonDll* addon, bool isMedia);
-    virtual ~CGUIAddonWindow() = default;
+    ~CGUIAddonWindow() override = default;
 
     bool OnMessage(CGUIMessage& message) override;
     bool OnAction(const CAction &action) override;
@@ -189,7 +189,7 @@ namespace ADDON
     bool IsDialog() const override { return true; };
     bool IsModalDialog() const  override { return true; };
 
-    void Show(bool show = true);
+    void Show(bool show = true, bool modal = true);
     void Show_Internal(bool show = true);
 
   private:

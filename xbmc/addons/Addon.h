@@ -19,15 +19,8 @@
  *
  */
 
-#include <memory>
-#include <vector>
-
-#include "IAddon.h"
-#include "addons/settings/AddonSettings.h"
-#include "addons/AddonVersion.h"
+#include "addons/IAddon.h"
 #include "utils/XBMCTinyXML.h"
-#include "guilib/LocalizeStrings.h"
-#include "utils/ISerializable.h"
 
 class TiXmlElement;
 class CAddonCallbacksAddon;
@@ -43,8 +36,8 @@ namespace ADDON
 
   const char* const ORIGIN_SYSTEM = "b6a50484-93a0-4afb-a01c-8d17e059feda";
 
-void OnEnabled(const std::string& id);
-void OnDisabled(const std::string& id);
+void OnEnabled(const AddonPtr& addon);
+void OnDisabled(const AddonPtr& addon);
 void OnPreInstall(const AddonPtr& addon);
 void OnPostInstall(const AddonPtr& addon, bool update, bool modal);
 void OnPreUnInstall(const AddonPtr& addon);
@@ -54,7 +47,7 @@ class CAddon : public IAddon
 {
 public:
   explicit CAddon(CAddonInfo addonInfo);
-  virtual ~CAddon() {}
+  ~CAddon() override = default;
 
   TYPE Type() const override { return m_addonInfo.MainType(); }
   TYPE FullType() const override { return Type(); }
@@ -229,10 +222,11 @@ protected:
 
   /*! \brief Load the default settings and override these with any previously configured user settings
    \param bForce force the load of settings even if they are already loaded (reload)
+   \param loadUserSettings whether or not to load user settings
    \return true if settings exist, false otherwise
    \sa LoadUserSettings, SaveSettings, HasSettings, HasUserSettings, GetSetting, UpdateSetting
    */
-  bool LoadSettings(bool bForce);
+  bool LoadSettings(bool bForce, bool loadUserSettings = true);
 
   /*! \brief Load the user settings
    \return true if user settings exist, false otherwise

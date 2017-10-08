@@ -20,19 +20,19 @@
 
 #include "GUIDialogPVRTimerSettings.h"
 
-#include "dialogs/GUIDialogNumeric.h"
 #include "FileItem.h"
+#include "ServiceBroker.h"
+#include "addons/PVRClient.h"
+#include "dialogs/GUIDialogNumeric.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
-#include "addons/PVRClient.h"
-#include "ServiceBroker.h"
+#include "settings/SettingUtils.h"
 #include "settings/lib/Setting.h"
 #include "settings/lib/SettingsManager.h"
-#include "settings/SettingUtils.h"
 #include "settings/windows/GUIControlSettings.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
+#include "utils/log.h"
 
 #include "pvr/PVRManager.h"
 #include "pvr/PVRSettings.h"
@@ -94,9 +94,7 @@ CGUIDialogPVRTimerSettings::CGUIDialogPVRTimerSettings() :
   m_loadType = LOAD_EVERY_TIME;
 }
 
-CGUIDialogPVRTimerSettings::~CGUIDialogPVRTimerSettings()
-{
-}
+CGUIDialogPVRTimerSettings::~CGUIDialogPVRTimerSettings() = default;
 
 bool CGUIDialogPVRTimerSettings::CanBeActivated() const
 {
@@ -169,7 +167,7 @@ void CGUIDialogPVRTimerSettings::SetTimer(const CPVRTimerInfoTagPtr &timer)
   if (m_timerInfoTag->m_iClientChannelUid == PVR_CHANNEL_INVALID_UID)
   {
     bool bChannelSet(false);
-    if (m_timerType->IsEpgBasedTimerRule())
+    if (m_timerType->SupportsAnyChannel())
     {
       // Select "Any channel"
       const auto it = m_channelEntries.find(ENTRY_ANY_CHANNEL);
@@ -765,13 +763,26 @@ void CGUIDialogPVRTimerSettings::InitializeTypesList()
         continue;
     }
 
+    // Drop TimerTypes which need series link if none is set
+    if (type->RequiresEpgSeriesLinkOnCreate())
+    {
+      const CPVREpgInfoTagPtr epgTag(m_timerInfoTag->GetEpgInfoTag());
+      if (!epgTag || epgTag->SeriesLink().empty())
+        continue;
+    }
+
     // Drop TimerTypes that forbid EPGInfo, if it is populated
     if (type->ForbidsEpgTagOnCreate() && m_timerInfoTag->GetEpgInfoTag())
       continue;
 
-    // Drop TimerTypes that aren't rules if end time is in the past
-    if (!type->IsTimerRule() && m_timerInfoTag->EndAsLocalTime() < CDateTime::GetCurrentDateTime())
-      continue;
+    // Drop TimerTypes that aren't rules and cannot be recorded
+    if (!type->IsTimerRule())
+    {
+      const CPVREpgInfoTagPtr epgTag(m_timerInfoTag->GetEpgInfoTag());
+      bool bCanRecord = epgTag ? epgTag->IsRecordable() : m_timerInfoTag->EndAsLocalTime() > CDateTime::GetCurrentDateTime();
+      if (!bCanRecord)
+        continue;
+    }
 
     if (!bFoundThisType && *type == *m_timerType)
       bFoundThisType = true;
@@ -844,8 +855,8 @@ void CGUIDialogPVRTimerSettings::ChannelsFiller(
     {
       if (channelEntry.first == ENTRY_ANY_CHANNEL)
       {
-        // For epg-based timer rules only, add an "any channel" entry.
-        if (pThis->m_timerType->IsEpgBasedTimerRule())
+        // add an "any channel" entry, if supported by this type.
+        if (pThis->m_timerType->SupportsAnyChannel())
           list.push_back(std::make_pair(channelEntry.second.description, channelEntry.first));
         else
           continue;
@@ -880,8 +891,8 @@ void CGUIDialogPVRTimerSettings::DaysFiller(
     // Data range: "today" until "yesterday next year"
     const CDateTime now(CDateTime::GetCurrentDateTime());
     CDateTime time(now.GetYear(), now.GetMonth(), now.GetDay(), 0, 0, 0);
-    const CDateTime yesterdayPlusOneYear(
-      time.GetYear() + 1, time.GetMonth(), time.GetDay() - 1, time.GetHour(), time.GetMinute(), time.GetSecond());
+    const CDateTime yesterdayPlusOneYear(CDateTime(time.GetYear() + 1, time.GetMonth(), time.GetDay(), time.GetHour(), time.GetMinute(), time.GetSecond())
+		- CDateTimeSpan(1, 0, 0, 0));
 
     CDateTime oldCDateTime;
     if (setting->GetId() == SETTING_TMR_FIRST_DAY)

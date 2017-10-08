@@ -29,9 +29,6 @@ enum BDPlaybackMode
   BD_PLAYBACK_MAIN_TITLE,
 };
 
-#include "system.h"
-#ifdef HAVE_LIBBLURAY
-
 #include "settings/lib/ISettingCallback.h"
 
 class DllLibbluray;
@@ -46,9 +43,8 @@ public:
  
 protected:
   CDiscSettings();
-  virtual ~CDiscSettings();
+  ~CDiscSettings() override;
 
   DllLibbluray*       m_dll;
 
 };
-#endif

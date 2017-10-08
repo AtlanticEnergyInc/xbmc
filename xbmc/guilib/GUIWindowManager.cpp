@@ -81,7 +81,7 @@
 #include "dialogs/GUIDialogTextViewer.h"
 #include "network/GUIDialogNetworkSetup.h"
 #include "dialogs/GUIDialogMediaSource.h"
-#ifdef HAS_GL
+#if defined(HAS_GL) || defined(HAS_DX)
 #include "video/dialogs/GUIDialogCMSSettings.h"
 #endif
 #include "video/dialogs/GUIDialogVideoSettings.h"
@@ -134,6 +134,7 @@
 #include "pvr/dialogs/GUIDialogPVRGuideSearch.h"
 #include "pvr/dialogs/GUIDialogPVRRadioRDSInfo.h"
 #include "pvr/dialogs/GUIDialogPVRRecordingInfo.h"
+#include "pvr/dialogs/GUIDialogPVRRecordingSettings.h"
 #include "pvr/dialogs/GUIDialogPVRTimerSettings.h"
 
 #include "video/dialogs/GUIDialogTeletext.h"
@@ -146,8 +147,13 @@
 #include "addons/interfaces/AddonInterfaces.h"
 
 /* Game related include files */
+#include "cores/RetroPlayer/windows/GameWindowFullScreen.h"
 #include "games/controllers/windows/GUIControllerWindow.h"
 #include "games/windows/GUIWindowGames.h"
+#include "games/dialogs/osd/DialogGameOSD.h"
+#include "games/dialogs/osd/DialogGameVideoFilter.h"
+#include "games/dialogs/osd/DialogGameViewMode.h"
+#include "games/dialogs/osd/DialogGameVolume.h"
 
 using namespace KODI;
 using namespace PVR;
@@ -161,9 +167,7 @@ CGUIWindowManager::CGUIWindowManager()
   m_initialized = false;
 }
 
-CGUIWindowManager::~CGUIWindowManager()
-{
-}
+CGUIWindowManager::~CGUIWindowManager() = default;
 
 void CGUIWindowManager::Initialize()
 {
@@ -219,7 +223,7 @@ void CGUIWindowManager::CreateWindows()
   Add(new CGUIDialogSlider);
   Add(new CGUIDialogMusicOSD);
   Add(new CGUIDialogVisualisationPresetList);
-#ifdef HAS_GL
+#if defined(HAS_GL) || defined(HAS_DX)
   Add(new CGUIDialogCMSSettings);
 #endif
   Add(new CGUIDialogVideoSettings);
@@ -279,6 +283,7 @@ void CGUIWindowManager::CreateWindows()
   Add(new CGUIDialogPVRGuideSearch);
   Add(new CGUIDialogPVRChannelsOSD);
   Add(new CGUIDialogPVRChannelGuide);
+  Add(new CGUIDialogPVRRecordingSettings);
 
   Add(new CGUIDialogSelect);
   Add(new CGUIDialogMusicInfo);
@@ -299,6 +304,11 @@ void CGUIWindowManager::CreateWindows()
 
   Add(new GAME::CGUIControllerWindow);
   Add(new GAME::CGUIWindowGames);
+  Add(new GAME::CDialogGameOSD);
+  Add(new GAME::CDialogGameVideoFilter);
+  Add(new GAME::CDialogGameViewMode);
+  Add(new GAME::CDialogGameVolume);
+  Add(new RETRO::CGameWindowFullScreen);
 }
 
 bool CGUIWindowManager::DestroyWindows()
@@ -377,6 +387,7 @@ bool CGUIWindowManager::DestroyWindows()
     DestroyWindow(WINDOW_DIALOG_PVR_OSD_CHANNELS);
     DestroyWindow(WINDOW_DIALOG_PVR_CHANNEL_GUIDE);
     DestroyWindow(WINDOW_DIALOG_OSD_TELETEXT);
+    DestroyWindow(WINDOW_DIALOG_PVR_RECORDING_SETTING);
 
     DestroyWindow(WINDOW_DIALOG_TEXT_VIEWER);
     DestroyWindow(WINDOW_DIALOG_PLAY_EJECT);
@@ -400,6 +411,11 @@ bool CGUIWindowManager::DestroyWindows()
     DestroyWindow(WINDOW_WEATHER);
     DestroyWindow(WINDOW_DIALOG_GAME_CONTROLLERS);
     DestroyWindow(WINDOW_GAMES);
+    DestroyWindow(WINDOW_DIALOG_GAME_OSD);
+    DestroyWindow(WINDOW_DIALOG_GAME_VIDEO_FILTER);
+    DestroyWindow(WINDOW_DIALOG_GAME_VIEW_MODE);
+    DestroyWindow(WINDOW_DIALOG_GAME_VOLUME);
+    DestroyWindow(WINDOW_FULLSCREEN_GAME);
 
     Remove(WINDOW_SETTINGS_SERVICE);
     Remove(WINDOW_SETTINGS_MYPVR);
@@ -683,15 +699,6 @@ void CGUIWindowManager::PreviousWindow()
 
   // ok to go to the previous window now
 
-  // pause game when leaving fullscreen or resume game when entering fullscreen
-  if (g_application.m_pPlayer->IsPlayingGame())
-  {
-    if (previousWindow == WINDOW_FULLSCREEN_VIDEO && g_application.m_pPlayer->IsPaused())
-      g_application.OnAction(ACTION_PAUSE);
-    else if (currentWindow == WINDOW_FULLSCREEN_VIDEO && !g_application.m_pPlayer->IsPaused())
-      g_application.OnAction(ACTION_PAUSE);
-  }
-
   // tell our info manager which window we are going to
   g_infoManager.SetNextWindow(previousWindow);
 
@@ -807,9 +814,9 @@ void CGUIWindowManager::ActivateWindow_Internal(int iWindowID, const std::vector
   // pause game when leaving fullscreen or resume game when entering fullscreen
   if (g_application.m_pPlayer->IsPlayingGame())
   {
-    if (GetActiveWindow() == WINDOW_FULLSCREEN_VIDEO && !g_application.m_pPlayer->IsPaused())
+    if (GetActiveWindow() == WINDOW_FULLSCREEN_GAME && !g_application.m_pPlayer->IsPaused())
       g_application.OnAction(ACTION_PAUSE);
-    else if (iWindowID == WINDOW_FULLSCREEN_VIDEO && g_application.m_pPlayer->IsPaused())
+    else if (iWindowID == WINDOW_FULLSCREEN_GAME && g_application.m_pPlayer->IsPaused())
       g_application.OnAction(ACTION_PAUSE);
   }
 
@@ -899,6 +906,12 @@ void CGUIWindowManager::OnApplicationMessage(ThreadMessage* pMsg)
   }
   break;
 
+  case TMSG_GUI_PREVIOUS_WINDOW:
+  {
+    PreviousWindow();
+  }
+  break;
+
   case TMSG_GUI_ADDON_DIALOG:
   {
     if (pMsg->lpVoid)
@@ -949,6 +962,8 @@ void CGUIWindowManager::OnApplicationMessage(ThreadMessage* pMsg)
     break;
 
   case TMSG_GUI_DIALOG_YESNO:
+  {
+
     if (!pMsg->lpVoid && pMsg->param1 < 0 && pMsg->param2 < 0)
       return;
 
@@ -966,7 +981,31 @@ void CGUIWindowManager::OnApplicationMessage(ThreadMessage* pMsg)
       pMsg->SetResult(dialog->ShowAndGetInput(options));
     }
 
-    break;
+  }
+  break;
+
+  case TMSG_GUI_DIALOG_OK:
+  {
+
+    if (!pMsg->lpVoid && pMsg->param1 < 0 && pMsg->param2 < 0)
+      return;
+
+    auto dialogOK = static_cast<CGUIDialogOK*>(GetWindow(WINDOW_DIALOG_OK));
+    if (!dialogOK)
+      return;
+
+    if (pMsg->lpVoid)
+      dialogOK->ShowAndGetInput(*static_cast<HELPERS::DialogOKMessage*>(pMsg->lpVoid));
+    else
+    {
+      HELPERS::DialogOKMessage options;
+      options.heading = pMsg->param1;
+      options.text = pMsg->param2;
+      dialogOK->ShowAndGetInput(options);
+    }
+    pMsg->SetResult(static_cast<int>(dialogOK->IsConfirmed()));
+  }
+  break;
   }
 }
 
@@ -976,6 +1015,35 @@ int CGUIWindowManager::GetMessageMask()
 }
 
 bool CGUIWindowManager::OnAction(const CAction &action) const
+{
+  auto actionId = action.GetID();
+  if (actionId == ACTION_GESTURE_BEGIN)
+  {
+    m_touchGestureActive = true;
+  }
+
+  bool ret;
+  if (!m_inhibitTouchGestureEvents || !action.IsGesture())
+  {
+    ret = HandleAction(action);
+  }
+  else
+  {
+    // We swallow the event, so it is handled
+    ret = true;
+    CLog::Log(LOGDEBUG, "Swallowing touch action %d due to inhibition on window switch", actionId);
+  }
+
+  if (actionId == ACTION_GESTURE_END || actionId == ACTION_GESTURE_ABORT)
+  {
+    m_touchGestureActive = false;
+    m_inhibitTouchGestureEvents = false;
+  }
+
+  return ret;
+}
+
+bool CGUIWindowManager::HandleAction(CAction const& action) const
 {
   CSingleLock lock(g_graphicsContext);
   unsigned int topMost = m_activeDialogs.size();
@@ -1041,12 +1109,12 @@ void CGUIWindowManager::Process(unsigned int currentTime)
 
 void CGUIWindowManager::MarkDirty()
 {
-  m_tracker.MarkDirtyRegion(CRect(0, 0, float(g_graphicsContext.GetWidth()), float(g_graphicsContext.GetHeight())));
+  m_tracker.MarkDirtyRegion(CDirtyRegion(CRect(0, 0, float(g_graphicsContext.GetWidth()), float(g_graphicsContext.GetHeight()))));
 }
 
 void CGUIWindowManager::MarkDirty(const CRect& rect)
 {
-  m_tracker.MarkDirtyRegion(rect);
+  m_tracker.MarkDirtyRegion(CDirtyRegion(rect));
 }
 
 void CGUIWindowManager::RenderPass() const
@@ -1438,9 +1506,6 @@ int CGUIWindowManager::GetActiveWindowID() const
     // special casing for numeric seek
     else if (CSeekHandler::GetInstance().HasTimeCode())
       iWin = WINDOW_VIDEO_TIME_SEEK;
-    // check if a game is playing
-    else if (g_application.m_pPlayer->IsPlayingGame())
-      iWin = WINDOW_FULLSCREEN_GAME;
   }
   if (iWin == WINDOW_VISUALISATION)
   {
@@ -1629,6 +1694,15 @@ void CGUIWindowManager::ClearWindowHistory()
 
 void CGUIWindowManager::CloseWindowSync(CGUIWindow *window, int nextWindowID /*= 0*/)
 {
+  // Abort touch action if active
+  if (m_touchGestureActive && !m_inhibitTouchGestureEvents)
+  {
+    CLog::Log(LOGDEBUG, "Closing window %d with active touch gesture, sending gesture abort event", window->GetID());
+    window->OnAction({ACTION_GESTURE_ABORT});
+    // Don't send any mid-gesture events to next window until new touch starts
+    m_inhibitTouchGestureEvents = true;
+  }
+
   window->Close(false, nextWindowID);
   while (window->IsAnimating(ANIM_TYPE_WINDOW_CLOSE))
     ProcessRenderLoop(true);

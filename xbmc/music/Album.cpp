@@ -51,6 +51,7 @@ CAlbum::CAlbum(const CFileItem& item)
   tag.GetReleaseDate(stTime);
   strAlbum = tag.GetAlbum();
   strMusicBrainzAlbumID = tag.GetMusicBrainzAlbumID();
+  strReleaseGroupMBID = tag.GetMusicBrainzReleaseGroupID();
   genre = tag.GetGenre();
   std::vector<std::string> musicBrainzAlbumArtistHints = tag.GetMusicBrainzAlbumArtistHints();
   strArtistDesc = tag.GetAlbumArtistString();
@@ -206,12 +207,80 @@ CAlbum::CAlbum(const CFileItem& item)
 void CAlbum::MergeScrapedAlbum(const CAlbum& source, bool override /* = true */)
 {
   /*
-   We don't merge musicbrainz album ID so that a refresh of album information
-   allows a lookup based on name rather than directly (re)using musicbrainz.
-   In future, we may wish to be able to override lookup by musicbrainz so
-   this might be dropped.
-   */
-//  strMusicBrainzAlbumID = source.strMusicBrainzAlbumID;
+   Initial scraping of album information when there is a Musicbrainz album ID derived from 
+   tags is done directly using that ID, otherwise the lookup is based on album and artist names
+   but this can sometimes mis-identify the album (i.e. classical music has many "Symphony No. 5").
+   It is useful to store the scraped mbid, but we need to be able to correct any mistakes. Hence 
+   a manual refresh of album information uses either the mbid as derived from tags or the album 
+   and artist names, not any previously scraped mbid.
+
+   When overwritting the data derived from tags, AND the original and scraped album have the same
+   Musicbrainz album ID, then merging is used to keep Kodi up to date with changes in the Musicbrainz 
+   database including album artist credits, song artist credits and song titles. However it is ony 
+   appropriate when the music files are tagged with mbids, these are taken as definative, scraped
+   mbids can not be depended on in this way.
+
+   When the album is megerd in this deep way it is flagged so that the database album update is aware
+   artist credits and songs need to be updated too.
+  */
+
+  bArtistSongMerge = override && !bScrapedMBID
+    && !source.strMusicBrainzAlbumID.empty() && !strMusicBrainzAlbumID.empty() 
+    && (strMusicBrainzAlbumID.compare(source.strMusicBrainzAlbumID) == 0);
+
+  /*
+   Musicbrainz album (release) ID and release group ID values derived from music file tags are
+   always taken as accurate and so can not be overwritten by a scraped value. When the album does 
+   not already have an mbid or has a previously scraped mbid, merge the new scraped value, 
+   flagging it as being from the scraper rather than derived from music file tags.
+  */
+  if (!source.strMusicBrainzAlbumID.empty() && (strMusicBrainzAlbumID.empty() || bScrapedMBID))
+  {
+    strMusicBrainzAlbumID = source.strMusicBrainzAlbumID;
+    bScrapedMBID = true;
+  }
+  if (!source.strReleaseGroupMBID.empty() && (strReleaseGroupMBID.empty() || bScrapedMBID))
+  {
+    strReleaseGroupMBID = source.strReleaseGroupMBID;
+  }
+
+  /*
+   Scraping can return different album artists from the originals derived from tags, even when doing
+   a lookup on name. 
+
+   When overwritting the data derived from tags, AND the original and scraped album have the same
+   Musicbrainz album ID, then merging an album replaces both the album artsts and the song artists
+   with those scraped. 
+   
+   When not doing that kind of merge, for any matching artist names the Musicbrainz artist id
+   returned by the scraper can be used to populate any previously missing Musicbrainz artist id values.
+  */
+  if (bArtistSongMerge)
+  {
+    artistCredits = source.artistCredits; // Replace artists and store mbid returned by scraper    
+    strArtistDesc.clear();  // @todo: set artist display string e.g. "artist1 & artist2" when scraped 
+  }
+  else
+  {
+    // Compare original album artists with those scraped (ignoring order), and set any missing mbid
+    for (auto &artistCredit : artistCredits)
+    {
+      if (artistCredit.GetMusicBrainzArtistID().empty())
+      {
+        for (auto sourceartistCredit : source.artistCredits)
+        {
+          if (StringUtils::EqualsNoCase(artistCredit.GetArtist(), sourceartistCredit.GetArtist()))
+          {
+            artistCredit.SetMusicBrainzArtistID(sourceartistCredit.GetMusicBrainzArtistID());
+            artistCredit.SetScrapedMBID(true);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  //@todo: scraped album genre needs adding to genre and album_genre tables, this just changes the string
   if ((override && !source.genre.empty()) || genre.empty())
     genre = source.genre;
   if ((override && !source.strAlbum.empty()) || strAlbum.empty())
@@ -243,24 +312,22 @@ void CAlbum::MergeScrapedAlbum(const CAlbum& source, bool override /* = true */)
   fRating = source.fRating;
   iUserrating = source.iUserrating;
   iVotes = source.iVotes;
-  if (override)
+  
+  /*
+   When overwritting the data derived from tags, AND the original and scraped album have the same
+   Musicbrainz album ID, update the local songs with scaped Musicbrainz information including the 
+   artist credits.
+  */
+  if (bArtistSongMerge)
   {
-    artistCredits = source.artistCredits;
-  }
-  else if (source.artistCredits.size() > artistCredits.size())
-    artistCredits.insert(artistCredits.end(), source.artistCredits.begin()+artistCredits.size(), source.artistCredits.end());
-  if (!strMusicBrainzAlbumID.empty())
-  {
-    /* update local songs with MB information */
-    for (VECSONGS::iterator song = songs.begin(); song != songs.end(); ++song)
+    for (auto &song : songs)
     {
-      if (!song->strMusicBrainzTrackID.empty())
-        for (VECSONGS::const_iterator sourceSong = source.infoSongs.begin(); sourceSong != source.infoSongs.end(); ++sourceSong)
-          if ((sourceSong->strMusicBrainzTrackID == song->strMusicBrainzTrackID) && (sourceSong->iTrack == song->iTrack))
-            song->MergeScrapedSong(*sourceSong, override);
+      if (!song.strMusicBrainzTrackID.empty())
+        for (auto sourceSong : source.songs)
+          if ((sourceSong.strMusicBrainzTrackID == song.strMusicBrainzTrackID) && (sourceSong.iTrack == song.iTrack))
+            song.MergeScrapedSong(sourceSong, override);
     }
   }
-  infoSongs = source.infoSongs;
 }
 
 std::string CAlbum::GetGenreString() const
@@ -400,7 +467,9 @@ bool CAlbum::Load(const TiXmlElement *album, bool append, bool prioritise)
     Reset();
 
   XMLUtils::GetString(album,              "title", strAlbum);
-  XMLUtils::GetString(album, "musicBrainzAlbumID", strMusicBrainzAlbumID);
+  XMLUtils::GetString(album, "musicbrainzalbumid", strMusicBrainzAlbumID);
+  XMLUtils::GetString(album, "musicbrainzreleasegroupid", strReleaseGroupMBID);
+  XMLUtils::GetBoolean(album, "scrapedmbid", bScrapedMBID);
   XMLUtils::GetString(album, "artistdesc", strArtistDesc);
   std::vector<std::string> artist; // Support old style <artist></artist> for backwards compatibility
   XMLUtils::GetStringArray(album, "artist", artist, prioritise, g_advancedSettings.m_musicItemSeparator);
@@ -494,53 +563,6 @@ bool CAlbum::Load(const TiXmlElement *album, bool append, bool prioritise)
     }
   }
 
-  const TiXmlElement* node = album->FirstChildElement("track");
-  if (node)
-    infoSongs.clear();  // this means that the tracks can't be spread over separate pages
-                    // but this is probably a reasonable limitation
-  bool bIncrement = false;
-  while (node)
-  {
-    if (node->FirstChild())
-    {
-
-      CSong song;
-      const TiXmlElement* songArtistCreditsNode = node->FirstChildElement("songArtistCredits");
-      if (songArtistCreditsNode)
-        song.artistCredits.clear();
-      
-      while (songArtistCreditsNode)
-      {
-        if (songArtistCreditsNode->FirstChild())
-        {
-          CArtistCredit artistCredit;
-          XMLUtils::GetString(songArtistCreditsNode,  "artist",               artistCredit.m_strArtist);
-          XMLUtils::GetString(songArtistCreditsNode,  "musicBrainzArtistID",  artistCredit.m_strMusicBrainzArtistID);
-          song.artistCredits.push_back(artistCredit);
-        }
-        
-        songArtistCreditsNode = songArtistCreditsNode->NextSiblingElement("songArtistCredits");
-      }
-
-      XMLUtils::GetString(node,   "musicBrainzTrackID",   song.strMusicBrainzTrackID);
-      XMLUtils::GetInt(node, "position", song.iTrack);
-
-      if (song.iTrack == 0)
-        bIncrement = true;
-
-      XMLUtils::GetString(node,"title",song.strTitle);
-      std::string strDur;
-      XMLUtils::GetString(node,"duration",strDur);
-      song.iDuration = StringUtils::TimeStringToSeconds(strDur);
-
-      if (bIncrement)
-        song.iTrack = song.iTrack + 1;
-
-      infoSongs.push_back(song);
-    }
-    node = node->NextSiblingElement("track");
-  }
-
   std::string strReleaseType;
   if (XMLUtils::GetString(album, "releasetype", strReleaseType))
     SetReleaseType(strReleaseType);
@@ -561,7 +583,9 @@ bool CAlbum::Save(TiXmlNode *node, const std::string &tag, const std::string& st
   if (!album) return false;
 
   XMLUtils::SetString(album,                    "title", strAlbum);
-  XMLUtils::SetString(album,       "musicBrainzAlbumID", strMusicBrainzAlbumID);
+  XMLUtils::SetString(album,       "musicbrainzalbumid", strMusicBrainzAlbumID);
+  XMLUtils::SetString(album, "musicbrainzreleasegroupid", strReleaseGroupMBID);
+  XMLUtils::SetBoolean(album, "scrapedmbid", bScrapedMBID);
   XMLUtils::SetString(album,              "artistdesc", strArtistDesc); //Can be different from artist credits
   XMLUtils::SetStringArray(album,               "genre", genre);
   XMLUtils::SetStringArray(album,               "style", styles);
@@ -606,25 +630,6 @@ bool CAlbum::Save(TiXmlNode *node, const std::string &tag, const std::string& st
     XMLUtils::SetString(albumArtistCreditsNode,  "musicBrainzArtistID", artistCredit->m_strMusicBrainzArtistID);
   }
   
-  for( VECSONGS::const_iterator song = infoSongs.begin(); song != infoSongs.end(); ++song)
-  {
-    // add a <song> tag
-    TiXmlElement cast("track");
-    TiXmlNode *node = album->InsertEndChild(cast);
-    for( VECARTISTCREDITS::const_iterator artistCredit = song->artistCredits.begin(); artistCredit != song->artistCredits.end(); ++artistCredit)
-    {
-      // add an <albumArtistCredits> tag
-      TiXmlElement songArtistCreditsElement("songArtistCredits");
-      TiXmlNode *songArtistCreditsNode = node->InsertEndChild(songArtistCreditsElement);
-      XMLUtils::SetString(songArtistCreditsNode,               "artist", artistCredit->m_strArtist);
-      XMLUtils::SetString(songArtistCreditsNode,  "musicBrainzArtistID", artistCredit->m_strMusicBrainzArtistID);
-    }
-    XMLUtils::SetString(node,   "musicBrainzTrackID",   song->strMusicBrainzTrackID);
-    XMLUtils::SetString(node,   "title",                song->strTitle);
-    XMLUtils::SetInt(node,      "position",             song->iTrack);
-    XMLUtils::SetString(node,   "duration",             StringUtils::SecondsToTimeString(song->iDuration));
-  }
-
   XMLUtils::SetString(album, "releasetype", GetReleaseType());
 
   return true;

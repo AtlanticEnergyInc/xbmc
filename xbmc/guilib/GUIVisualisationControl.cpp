@@ -57,6 +57,11 @@ const float* CAudioBuffer::Get() const
   return m_pBuffer;
 }
 
+int CAudioBuffer::Size() const
+{
+  return m_iLen;
+}
+
 void CAudioBuffer::Set(const float* psBuffer, int iSize)
 {
   if (iSize < 0)
@@ -172,8 +177,11 @@ void CGUIVisualisationControl::Process(unsigned int currentTime, CDirtyRegionLis
         m_alreadyStarted = false;
       }
 
-      std::string strFile = URIUtils::GetFileName(g_application.CurrentFile());
-      m_alreadyStarted = m_instance->Start(m_channels, m_samplesPerSec, m_bitsPerSample, strFile);
+      std::string songTitle = URIUtils::GetFileName(g_application.CurrentFile());
+      const MUSIC_INFO::CMusicInfoTag* tag = g_infoManager.GetCurrentSongTag();
+      if (tag && !tag->GetTitle().empty())
+        songTitle = tag->GetTitle();
+      m_alreadyStarted = m_instance->Start(m_channels, m_samplesPerSec, m_bitsPerSample, songTitle);
       g_graphicsContext.ApplyStateBlock();
       m_callStart = false;
       m_updateTrack = true;
@@ -276,11 +284,11 @@ void CGUIVisualisationControl::OnAudioData(const float* audioData, unsigned int 
     m_transform->calc(psAudioData, m_freq);
 
     // Transfer data to our visualisation
-    m_instance->AudioData(psAudioData, audioDataLength, m_freq, AUDIO_BUFFER_SIZE/2); // half due to complex-conjugate
+    m_instance->AudioData(psAudioData, ptrAudioBuffer->Size(), m_freq, AUDIO_BUFFER_SIZE/2); // half due to complex-conjugate
   }
   else
   { // Transfer data to our visualisation
-    m_instance->AudioData(ptrAudioBuffer->Get(), audioDataLength, nullptr, 0);
+    m_instance->AudioData(ptrAudioBuffer->Get(), ptrAudioBuffer->Size(), nullptr, 0);
   }
   return;
 }
@@ -442,7 +450,7 @@ void CGUIVisualisationControl::CreateBuffers()
   ClearBuffers();
 
   // Get the number of buffers from the current vis
-  VIS_INFO info;
+  VIS_INFO info { false, 0 };
 
   if (m_instance && m_alreadyStarted)
     m_instance->GetInfo(&info);

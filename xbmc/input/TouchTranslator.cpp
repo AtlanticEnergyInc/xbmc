@@ -21,6 +21,7 @@
 #include "TouchTranslator.h"
 #include "ActionIDs.h"
 #include "ActionTranslator.h"
+#include "WindowTranslator.h" //! @todo
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
@@ -95,6 +96,27 @@ void CTouchTranslator::Clear()
   m_touchMap.clear();
 }
 
+bool CTouchTranslator::TranslateTouchAction(int window, int touchAction, int touchPointers, int &action, std::string &actionString)
+{
+  if (touchAction < 0)
+    return false;
+
+  unsigned int actionId = ACTION_NONE;
+
+  if (!TranslateAction(window, touchAction, touchPointers, actionId, actionString))
+  {
+    int fallbackWindow = CWindowTranslator::GetFallbackWindow(window);
+    if (fallbackWindow > -1)
+      TranslateAction(fallbackWindow, touchAction, touchPointers, actionId, actionString);
+
+    if (actionId == ACTION_NONE)
+      TranslateAction(-1, touchAction, touchPointers, actionId, actionString);
+  }
+
+  action = actionId;
+  return actionId != ACTION_NONE;
+}
+
 bool CTouchTranslator::TranslateAction(int window, unsigned int touchCommand, int touchPointers, unsigned int &actionId, std::string &actionString)
 {
   unsigned int touchActionKey = GetTouchActionKey(touchCommand, touchPointers);
@@ -157,7 +179,7 @@ unsigned int CTouchTranslator::TranslateTouchCommand(const TiXmlElement *pButton
   unsigned int touchActionKey = GetTouchActionKey(touchCommandId, pointers);
 
   action.strAction = szAction;
-  if (!CActionTranslator::TranslateString(szAction, action.actionId) || action.actionId == ACTION_NONE)
+  if (!CActionTranslator::TranslateString(action.strAction, action.actionId) || action.actionId == ACTION_NONE)
     return ACTION_NONE;
 
   return touchActionKey;

@@ -37,9 +37,6 @@
 #include <iomanip>
 #include <math.h>
 
-// allow audio for slow and fast speeds (but not rewind/fastforward)
-#define ALLOW_AUDIO(speed) ((speed) > 5*DVD_PLAYSPEED_NORMAL/10 && (speed) <= 15*DVD_PLAYSPEED_NORMAL/10)
-
 class CDVDMsgAudioCodecChange : public CDVDMsg
 {
 public:
@@ -48,7 +45,7 @@ public:
     , m_codec(codec)
     , m_hints(hints)
   {}
- ~CDVDMsgAudioCodecChange()
+ ~CDVDMsgAudioCodecChange() override
   {
     delete m_codec;
   }
@@ -90,8 +87,6 @@ CVideoPlayerAudio::~CVideoPlayerAudio()
 
 bool CVideoPlayerAudio::OpenStream(CDVDStreamInfo hints)
 {
-  m_processInfo.ResetAudioCodecInfo();
-
   CLog::Log(LOGNOTICE, "Finding audio codec for: %i", hints.codec);
   bool allowpassthrough = !CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK);
   if (hints.realtime)
@@ -123,6 +118,8 @@ void CVideoPlayerAudio::OpenStream(CDVDStreamInfo &hints, CDVDAudioCodec* codec)
 {
   SAFE_DELETE(m_pAudioCodec);
   m_pAudioCodec = codec;
+
+  m_processInfo.ResetAudioCodecInfo();
 
   /* store our stream hints */
   m_streaminfo = hints;
@@ -249,7 +246,7 @@ void CVideoPlayerAudio::Process()
     int priority = 1;
     //Do we want a new audio frame?
     if (m_syncState == IDVDStreamPlayer::SYNC_STARTING ||              /* when not started */
-        ALLOW_AUDIO(m_speed) || /* when playing normally */
+        m_processInfo.IsTempoAllowed(static_cast<float>(m_speed)/DVD_PLAYSPEED_NORMAL) ||
         m_speed <  DVD_PLAYSPEED_PAUSE  || /* when rewinding */
         (m_speed >  DVD_PLAYSPEED_NORMAL && m_audioClock < m_pClock->GetClock())) /* when behind clock in ff */
       priority = 0;
@@ -288,7 +285,8 @@ void CVideoPlayerAudio::Process()
         continue;
 
       // Flush as the audio output may keep looping if we don't
-      if (ALLOW_AUDIO(m_speed) && !m_stalled && m_syncState == IDVDStreamPlayer::SYNC_INSYNC)
+      if (m_processInfo.IsTempoAllowed(static_cast<float>(m_speed)/DVD_PLAYSPEED_NORMAL) &&
+          !m_stalled && m_syncState == IDVDStreamPlayer::SYNC_INSYNC)
       {
         // while AE sync is active, we still have time to fill buffers
         if (m_syncTimer.IsTimePast())
@@ -306,7 +304,7 @@ void CVideoPlayerAudio::Process()
     // handle messages
     if (pMsg->IsType(CDVDMsg::GENERAL_SYNCHRONIZE))
     {
-      if(((CDVDMsgGeneralSynchronize*)pMsg)->Wait(100, SYNCSOURCE_AUDIO))
+      if (static_cast<CDVDMsgGeneralSynchronize*>(pMsg)->Wait(100, SYNCSOURCE_AUDIO))
         CLog::Log(LOGDEBUG, "CVideoPlayerAudio - CDVDMsg::GENERAL_SYNCHRONIZE");
       else
         m_messageQueue.Put(pMsg->Acquire(), 1);  // push back as prio message, to process other prio messages
@@ -314,9 +312,15 @@ void CVideoPlayerAudio::Process()
     else if (pMsg->IsType(CDVDMsg::GENERAL_RESYNC))
     { //player asked us to set internal clock
       double pts = static_cast<CDVDMsgDouble*>(pMsg)->m_value;
-      CLog::Log(LOGDEBUG, "CVideoPlayerAudio - CDVDMsg::GENERAL_RESYNC(%f)", pts);
+      CLog::Log(LOGDEBUG, "CVideoPlayerAudio - CDVDMsg::GENERAL_RESYNC(%f), level: %d, cache: %f",
+                pts, m_messageQueue.GetLevel(), m_audioSink.GetDelay());
 
-      m_audioClock = pts + m_audioSink.GetDelay();
+      double delay = m_audioSink.GetDelay();
+      if (pts > m_audioClock - delay + 0.5 * DVD_TIME_BASE)
+      {
+        m_audioSink.Flush();
+      }
+      m_audioClock = pts + delay;
       if (m_speed != DVD_PLAYSPEED_PAUSE)
         m_audioSink.Resume();
       m_syncState = IDVDStreamPlayer::SYNC_INSYNC;
@@ -357,7 +361,7 @@ void CVideoPlayerAudio::Process()
     {
       double speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
 
-      if (ALLOW_AUDIO(speed))
+      if (m_processInfo.IsTempoAllowed(static_cast<float>(speed)/DVD_PLAYSPEED_NORMAL))
       {
         if (speed != m_speed)
         {
@@ -391,11 +395,12 @@ void CVideoPlayerAudio::Process()
     }
     else if (pMsg->IsType(CDVDMsg::DEMUXER_PACKET))
     {
-      DemuxPacket* pPacket = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacket();
-      bool bPacketDrop  = ((CDVDMsgDemuxerPacket*)pMsg)->GetPacketDrop();
+      DemuxPacket* pPacket = static_cast<CDVDMsgDemuxerPacket*>(pMsg)->GetPacket();
+      bool bPacketDrop  = static_cast<CDVDMsgDemuxerPacket*>(pMsg)->GetPacketDrop();
 
       if (bPacketDrop ||
-          (!ALLOW_AUDIO(m_speed) && m_syncState == IDVDStreamPlayer::SYNC_INSYNC))
+          (!m_processInfo.IsTempoAllowed(static_cast<float>(m_speed)/DVD_PLAYSPEED_NORMAL) &&
+           m_syncState == IDVDStreamPlayer::SYNC_INSYNC))
       {
         pMsg->Release();
         continue;
@@ -475,14 +480,6 @@ bool CVideoPlayerAudio::ProcessDecoderOutput(DVDAudioFrame &audioframe)
 
       if (m_syncState == IDVDStreamPlayer::SYNC_INSYNC)
         m_audioSink.Resume();
-
-      m_streaminfo.channels = audioframe.format.m_channelLayout.Count();
-
-      m_processInfo.SetAudioChannels(audioframe.format.m_channelLayout);
-      m_processInfo.SetAudioSampleRate(audioframe.format.m_sampleRate);
-      m_processInfo.SetAudioBitsPerSample(audioframe.bits_per_sample);
-
-      m_messageParent.Put(new CDVDMsg(CDVDMsg::PLAYER_AVCHANGE));
     }
 
     SetSyncType(audioframe.passthrough);
@@ -509,20 +506,26 @@ bool CVideoPlayerAudio::ProcessDecoderOutput(DVDAudioFrame &audioframe)
   audioframe.framesOut += framesOutput;
 
   // signal to our parent that we have initialized
-  if(m_syncState == IDVDStreamPlayer::SYNC_STARTING)
+  if (m_syncState == IDVDStreamPlayer::SYNC_STARTING)
   {
-    double cachetotal = DVD_SEC_TO_TIME(m_audioSink.GetCacheTotal());
-    double cachetime = m_audioSink.GetDelay();
-    if (cachetime >= cachetotal * 0.5)
+    double cachetotal = m_audioSink.GetCacheTotal();
+    double cachetime = m_audioSink.GetCacheTime();
+    if (cachetime >= cachetotal * 0.75)
     {
       m_syncState = IDVDStreamPlayer::SYNC_WAITSYNC;
       m_stalled = false;
       SStartMsg msg;
       msg.player = VideoPlayer_AUDIO;
-      msg.cachetotal = cachetotal;
-      msg.cachetime = cachetime;
+      msg.cachetotal = m_audioSink.GetMaxDelay() * DVD_TIME_BASE;
+      msg.cachetime = m_audioSink.GetDelay();
       msg.timestamp = audioframe.hasTimestamp ? audioframe.pts : DVD_NOPTS_VALUE;
       m_messageParent.Put(new CDVDMsgType<SStartMsg>(CDVDMsg::PLAYER_STARTED, msg));
+
+      m_streaminfo.channels = audioframe.format.m_channelLayout.Count();
+      m_processInfo.SetAudioChannels(audioframe.format.m_channelLayout);
+      m_processInfo.SetAudioSampleRate(audioframe.format.m_sampleRate);
+      m_processInfo.SetAudioBitsPerSample(audioframe.bits_per_sample);
+      m_messageParent.Put(new CDVDMsg(CDVDMsg::PLAYER_AVCHANGE));
     }
   }
 

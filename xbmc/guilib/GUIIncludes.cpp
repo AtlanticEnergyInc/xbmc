@@ -92,9 +92,7 @@ CGUIIncludes::CGUIIncludes()
   m_expressionNodes.insert("selected");
 }
 
-CGUIIncludes::~CGUIIncludes()
-{
-}
+CGUIIncludes::~CGUIIncludes() = default;
 
 void CGUIIncludes::Clear()
 {
@@ -338,8 +336,8 @@ void CGUIIncludes::SetDefaults(TiXmlElement *node)
   if (it != m_defaults.end())
   {
     // we don't insert <left> et. al. if <posx> or <posy> is specified
-    bool hasPosX(node->FirstChild("posx"));
-    bool hasPosY(node->FirstChild("posy"));
+    bool hasPosX(node->FirstChild("posx") != nullptr);
+    bool hasPosY(node->FirstChild("posy") != nullptr);
 
     const TiXmlElement &element = (*it).second;
     const TiXmlElement *tag = element.FirstChildElement();
@@ -596,7 +594,7 @@ class ParamReplacer
   int m_numTotalParams;
   int m_numUndefinedParams;
 public:
-  ParamReplacer(const std::map<std::string, std::string>& params)
+  explicit ParamReplacer(const std::map<std::string, std::string>& params)
     : m_params(params), m_numTotalParams(0), m_numUndefinedParams(0) {}
   int GetNumTotalParams() const { return m_numTotalParams; }
   int GetNumDefinedParams() const { return m_numTotalParams - m_numUndefinedParams; }

@@ -24,6 +24,11 @@
 #include <float.h>
 
 #include "ServiceBroker.h"
+#include "cores/RetroPlayer/process/RPProcessInfo.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.h"
+#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAmlogic.h"
+#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
+#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.h"
 #include "guilib/GraphicContext.h"
 #include "guilib/Resolution.h"
 #include "settings/Settings.h"
@@ -37,6 +42,8 @@
 #include <linux/fb.h>
 
 #include <EGL/egl.h>
+
+using namespace KODI;
 
 CWinSystemAmlogic::CWinSystemAmlogic()
 {
@@ -77,6 +84,11 @@ CWinSystemAmlogic::~CWinSystemAmlogic()
 bool CWinSystemAmlogic::InitWindowSystem()
 {
   m_nativeDisplay = EGL_DEFAULT_DISPLAY;
+
+  CDVDVideoCodecAmlogic::Register();
+  CLinuxRendererGLES::Register();
+  RETRO::CRPProcessInfo::RegisterRendererFactory(new RETRO::CRendererFactoryGuiTexture);
+  CRendererAML::Register();
 
   return CWinSystemBase::InitWindowSystem();
 }
@@ -134,7 +146,7 @@ bool CWinSystemAmlogic::CreateNewWindow(const std::string& name,
   nativeWindow->height = res.iHeight;
   m_nativeWindow = static_cast<EGLNativeWindowType>(nativeWindow);
 
-  aml_set_native_resolution(res, m_framebuffer_name);
+  aml_set_native_resolution(res, m_framebuffer_name, stereo_mode);
 
   if (!m_delayDispReset)
   {

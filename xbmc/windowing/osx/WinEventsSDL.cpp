@@ -31,6 +31,7 @@
 #include "input/MouseStat.h"
 #include "windowing/WindowingFactory.h"
 #include "platform/darwin/osx/CocoaInterface.h"
+#include "ServiceBroker.h"
 
 using namespace KODI::MESSAGING;
 
@@ -44,7 +45,7 @@ bool CWinEventsSDL::MessagePump()
     switch(event.type)
     {
       case SDL_QUIT:
-        if (!g_application.m_bStop) 
+        if (!g_application.m_bStop)
           CApplicationMessenger::GetInstance().PostMsg(TMSG_QUIT);
         break;
 
@@ -131,7 +132,7 @@ bool CWinEventsSDL::MessagePump()
       {
         if (0 == (SDL_GetAppState() & SDL_APPMOUSEFOCUS))
         {
-          CInputManager::GetInstance().SetMouseActive(false);
+          CServiceBroker::GetInputManager().SetMouseActive(false);
           // See CApplication::ProcessSlow() for a description as to why we call Cocoa_HideMouse.
           // this is here to restore the pointer when toggling back to window mode from fullscreen.
           Cocoa_ShowMouse();

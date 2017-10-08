@@ -44,7 +44,7 @@ class CMusicInfoTag : public IArchivable, public ISerializable, public ISortable
 public:
   CMusicInfoTag(void);
   CMusicInfoTag(const CMusicInfoTag& tag);
-  virtual ~CMusicInfoTag();
+  ~CMusicInfoTag() override;
   const CMusicInfoTag& operator =(const CMusicInfoTag& tag);
   bool operator !=(const CMusicInfoTag& tag) const;
   bool Loaded() const;
@@ -74,6 +74,7 @@ public:
   const std::vector<std::string>& GetMusicBrainzArtistID() const;
   const std::vector<std::string>& GetMusicBrainzArtistHints() const;
   const std::string& GetMusicBrainzAlbumID() const;
+  const std::string& GetMusicBrainzReleaseGroupID() const;
   const std::vector<std::string>& GetMusicBrainzAlbumArtistID() const;
   const std::vector<std::string>& GetMusicBrainzAlbumArtistHints() const;
   const std::string& GetMusicBrainzReleaseType() const;
@@ -126,6 +127,7 @@ public:
   void SetMusicBrainzAlbumID(const std::string& strAlbumID);
   void SetMusicBrainzAlbumArtistID(const std::vector<std::string>& musicBrainzAlbumArtistId);
   void SetMusicBrainzAlbumArtistHints(const std::vector<std::string>& musicBrainzAlbumArtistHints);
+  void SetMusicBrainzReleaseGroupID(const std::string& strReleaseGroupID);
   void SetMusicBrainzReleaseType(const std::string& ReleaseType);
   void SetComment(const std::string& comment);
   void SetMood(const std::string& mood);
@@ -175,9 +177,9 @@ public:
   void SetContributors(const VECMUSICROLES& contributors);
   bool HasContributors() const { return !m_musicRoles.empty(); }
 
-  virtual void Archive(CArchive& ar);
-  virtual void Serialize(CVariant& ar) const;
-  virtual void ToSortable(SortItem& sortable, Field field) const;
+  void Archive(CArchive& ar) override;
+  void Serialize(CVariant& ar) const override;
+  void ToSortable(SortItem& sortable, Field field) const override;
 
   void Clear();
 
@@ -205,6 +207,7 @@ protected:
   std::string m_strMusicBrainzAlbumID;
   std::vector<std::string> m_musicBrainzAlbumArtistID;
   std::vector<std::string> m_musicBrainzAlbumArtistHints;
+  std::string m_strMusicBrainzReleaseGroupID;
   std::string m_strMusicBrainzReleaseType;
   VECMUSICROLES m_musicRoles; //Artists contributing to the recording and role (from tags other than ARTIST or ALBUMARTIST)
   std::string m_strComment;

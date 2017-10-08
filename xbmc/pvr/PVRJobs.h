@@ -21,11 +21,12 @@
 
 #include <vector>
 
-#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
-#include "addons/PVRClient.h"
 #include "FileItem.h"
-#include "pvr/PVRTypes.h"
+#include "addons/PVRClient.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
 #include "utils/JobManager.h"
+
+#include "pvr/PVRTypes.h"
 
 namespace PVR
 {
@@ -34,7 +35,7 @@ namespace PVR
   public:
     CPVRSetRecordingOnChannelJob(const CPVRChannelPtr &channel, bool bOnOff)
     : m_channel(channel), m_bOnOff(bOnOff) {}
-    virtual ~CPVRSetRecordingOnChannelJob() = default;
+    ~CPVRSetRecordingOnChannelJob() override = default;
     const char *GetType() const override { return "pvr-set-recording-on-channel"; }
 
     bool DoWork() override;
@@ -43,14 +44,40 @@ namespace PVR
     bool m_bOnOff;
   };
 
-  class CPVRContinueLastChannelJob : public CJob
+  class CPVRPlayChannelOnStartupJob : public CJob
   {
   public:
-    CPVRContinueLastChannelJob() = default;
-    virtual ~CPVRContinueLastChannelJob() = default;
-    const char *GetType() const override { return "pvr-continue-last-channel-job"; }
+    CPVRPlayChannelOnStartupJob() = default;
+    ~CPVRPlayChannelOnStartupJob() override = default;
+    const char *GetType() const override { return "pvr-play-channel-on-startup"; }
 
     bool DoWork() override;
+  };
+
+  class CPVRChannelEntryTimeoutJob : public CJob, public IJobCallback
+  {
+  public:
+    explicit CPVRChannelEntryTimeoutJob(int timeout);
+    ~CPVRChannelEntryTimeoutJob() override = default;
+    const char *GetType() const override { return "pvr-channel-entry-timeout-job"; }
+    void OnJobComplete(unsigned int iJobID, bool bSuccess, CJob *job) override {}
+
+    bool DoWork() override;
+  private:
+    XbmcThreads::EndTime m_delayTimer;
+  };
+
+  class CPVRChannelInfoTimeoutJob : public CJob, public IJobCallback
+  {
+  public:
+    CPVRChannelInfoTimeoutJob(int iTimeout);
+    ~CPVRChannelInfoTimeoutJob() override = default;
+    const char *GetType() const override { return "pvr-channel-info-timeout-job"; }
+    void OnJobComplete(unsigned int iJobID, bool bSuccess, CJob *job) override {}
+
+    bool DoWork() override;
+  private:
+    XbmcThreads::EndTime m_delayTimer;
   };
 
   class CPVREventlogJob : public CJob
@@ -58,7 +85,7 @@ namespace PVR
   public:
     CPVREventlogJob() = default;
     CPVREventlogJob(bool bNotifyUser, bool bError, const std::string &label, const std::string &msg, const std::string &icon);
-    virtual ~CPVREventlogJob() = default;
+    ~CPVREventlogJob() override = default;
     const char *GetType() const override { return "pvr-eventlog-job"; }
 
     void AddEvent(bool bNotifyUser, bool bError, const std::string &label, const std::string &msg, const std::string &icon);
@@ -84,7 +111,7 @@ namespace PVR
   {
   public:
     CPVRStartupJob(void) = default;
-    virtual ~CPVRStartupJob() = default;
+    ~CPVRStartupJob() override = default;
     const char *GetType() const override { return "pvr-startup"; }
 
     bool DoWork() override;
@@ -94,7 +121,7 @@ namespace PVR
   {
   public:
     CPVREpgsCreateJob(void) = default;
-    virtual ~CPVREpgsCreateJob() = default;
+    ~CPVREpgsCreateJob() override = default;
     const char *GetType() const override { return "pvr-create-epgs"; }
 
     bool DoWork() override;
@@ -104,7 +131,7 @@ namespace PVR
   {
   public:
     CPVRRecordingsUpdateJob(void) = default;
-    virtual ~CPVRRecordingsUpdateJob() = default;
+    ~CPVRRecordingsUpdateJob() override = default;
     const char *GetType() const override { return "pvr-update-recordings"; }
 
     bool DoWork() override;
@@ -114,7 +141,7 @@ namespace PVR
   {
   public:
     CPVRTimersUpdateJob(void) = default;
-    virtual ~CPVRTimersUpdateJob() = default;
+    ~CPVRTimersUpdateJob() override = default;
     const char *GetType() const override { return "pvr-update-timers"; }
 
     bool DoWork() override;
@@ -124,7 +151,7 @@ namespace PVR
   {
   public:
     CPVRChannelsUpdateJob(void) = default;
-    virtual ~CPVRChannelsUpdateJob() = default;
+    ~CPVRChannelsUpdateJob() override = default;
     const char *GetType() const override { return "pvr-update-channels"; }
 
     bool DoWork() override;
@@ -134,7 +161,7 @@ namespace PVR
   {
   public:
     CPVRChannelGroupsUpdateJob(void) = default;
-    virtual ~CPVRChannelGroupsUpdateJob() = default;
+    ~CPVRChannelGroupsUpdateJob() override = default;
     const char *GetType() const override { return "pvr-update-channelgroups"; }
 
     bool DoWork() override;
@@ -144,7 +171,7 @@ namespace PVR
   {
   public:
     CPVRSearchMissingChannelIconsJob(void) = default;
-    virtual ~CPVRSearchMissingChannelIconsJob() = default;
+    ~CPVRSearchMissingChannelIconsJob() override = default;
     const char *GetType() const override { return "pvr-search-missing-channel-icons"; }
 
     bool DoWork() override;
@@ -155,7 +182,7 @@ namespace PVR
   public:
     CPVRClientConnectionJob(CPVRClient *client, std::string connectString, PVR_CONNECTION_STATE state, std::string message)
     : m_client(client), m_connectString(connectString), m_state(state), m_message(message) {}
-    virtual ~CPVRClientConnectionJob() = default;
+    ~CPVRClientConnectionJob() override = default;
     const char *GetType() const override { return "pvr-client-connection"; }
 
     bool DoWork() override;

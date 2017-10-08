@@ -49,10 +49,18 @@ namespace GAME
   public:
     virtual ~IGameVideoCallback() = default;
 
-    virtual bool OpenPixelStream(AVPixelFormat pixfmt, unsigned int width, unsigned int height, double framerate, unsigned int orientationDeg) = 0;
+    virtual bool OpenPixelStream(AVPixelFormat pixfmt, unsigned int width, unsigned int height, unsigned int orientationDeg) = 0;
     virtual bool OpenEncodedStream(AVCodecID codec) = 0;
     virtual void AddData(const uint8_t* data, unsigned int size) = 0;
     virtual void CloseStream() = 0;
+  };
+
+  class IGameInputCallback
+  {
+  public:
+    virtual ~IGameInputCallback() = default;
+
+    virtual void PollInput() = 0;
   };
 }
 }

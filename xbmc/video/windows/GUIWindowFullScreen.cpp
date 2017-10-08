@@ -21,6 +21,7 @@
 #include "threads/SystemClock.h"
 #include "system.h"
 #include "GUIWindowFullScreen.h"
+#include "GUIWindowFullScreenDefines.h"
 #include "Application.h"
 #include "ServiceBroker.h"
 #include "messaging/ApplicationMessenger.h"
@@ -31,6 +32,8 @@
 #include "video/dialogs/GUIDialogAudioSubtitleSettings.h"
 #include "guilib/GUIWindowManager.h"
 #include "input/Key.h"
+#include "pvr/PVRGUIActions.h"
+#include "pvr/PVRManager.h"
 #include "video/dialogs/GUIDialogFullScreenInfo.h"
 #include "settings/DisplaySettings.h"
 #include "settings/MediaSettings.h"
@@ -41,7 +44,7 @@
 #include "threads/SingleLock.h"
 #include "utils/StringUtils.h"
 #include "XBDateTime.h"
-#include "input/ButtonTranslator.h"
+#include "input/InputManager.h"
 #include "windowing/WindowingFactory.h"
 #include "cores/IPlayer.h"
 #include "guiinfo/GUIInfoLabels.h"
@@ -55,27 +58,11 @@
 
 using namespace KODI::MESSAGING;
 
-#define BLUE_BAR                          0
-#define LABEL_ROW1                       10
-#define LABEL_ROW2                       11
-#define LABEL_ROW3                       12
-
-//Displays current position, visible after seek or when forced
-//Alt, use conditional visibility Player.DisplayAfterSeek
-#define LABEL_CURRENT_TIME               22
-
-//Displays when video is rebuffering
-//Alt, use conditional visibility Player.IsCaching
-#define LABEL_BUFFERING                  24
-
-//Progressbar used for buffering status and after seeking
-#define CONTROL_PROGRESS                 23
-
 #if defined(TARGET_DARWIN)
 static CLinuxResourceCounter m_resourceCounter;
 #endif
 
-CGUIWindowFullScreen::CGUIWindowFullScreen(void)
+CGUIWindowFullScreen::CGUIWindowFullScreen()
     : CGUIWindow(WINDOW_FULLSCREEN_VIDEO, "VideoFullScreen.xml")
 {
   m_viewModeChanged = true;
@@ -110,13 +97,14 @@ CGUIWindowFullScreen::~CGUIWindowFullScreen(void)
 bool CGUIWindowFullScreen::OnAction(const CAction &action)
 {
   if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_PVRPLAYBACK_CONFIRMCHANNELSWITCH) &&
-      g_infoManager.IsPlayerChannelPreviewActive() &&
-      (action.GetID() == ACTION_SELECT_ITEM || CButtonTranslator::GetInstance().GetGlobalAction(action.GetButtonCode()).GetID() == ACTION_SELECT_ITEM))
+      CServiceBroker::GetPVRManager().GUIActions()->GetChannelNavigator().IsPreview() &&
+      (action.GetID() == ACTION_SELECT_ITEM ||
+       CServiceBroker::GetInputManager().GetGlobalAction(action.GetButtonCode()).GetID() == ACTION_SELECT_ITEM))
   {
     // If confirm channel switch is active, channel preview is currently shown
     // and the button that caused this action matches (global) action "Select" (OK)
     // switch to the channel currently displayed within the preview.
-    g_application.m_pPlayer->SwitchChannel(g_application.CurrentFileItem().GetPVRChannelInfoTag());
+    CServiceBroker::GetPVRManager().GUIActions()->GetChannelNavigator().SwitchToCurrentChannel();
     return true;
   }
 
@@ -160,9 +148,7 @@ bool CGUIWindowFullScreen::OnAction(const CAction &action)
     { // toggle the aspect ratio mode (only if the info is onscreen)
       if (m_dwShowViewModeTimeout)
       {
-#ifdef HAS_VIDEO_PLAYBACK
         g_application.m_pPlayer->SetRenderViewMode(CViewModeSettings::GetNextQuickCycleViewMode(CMediaSettings::GetInstance().GetCurrentVideoSettings().m_ViewMode));
-#endif
       }
       else
         m_viewModeChanged = true;
@@ -315,7 +301,7 @@ EVENT_RESULT CGUIWindowFullScreen::OnMouseEvent(const CPoint &point, const CMous
 void CGUIWindowFullScreen::FrameMove()
 {
   float playspeed = g_application.m_pPlayer->GetPlaySpeed();
-  if (playspeed < 0.75 || playspeed > 1.55)
+  if (playspeed != 1.0 && !g_application.m_pPlayer->HasGame())
     g_infoManager.SetDisplayAfterSeek();
 
   if (!g_application.m_pPlayer->HasPlayer())
@@ -449,7 +435,7 @@ void CGUIWindowFullScreen::SeekChapter(int iChapter)
 
 void CGUIWindowFullScreen::ToggleOSD()
 {
-  CGUIDialogVideoOSD *pOSD = g_windowManager.GetWindow<CGUIDialogVideoOSD>(WINDOW_DIALOG_VIDEO_OSD);
+  CGUIDialog *pOSD = GetOSD();
   if (pOSD)
   {
     if (pOSD->IsDialogRunning())
@@ -463,10 +449,11 @@ void CGUIWindowFullScreen::ToggleOSD()
 
 void CGUIWindowFullScreen::TriggerOSD()
 {
-  CGUIDialogVideoOSD *pOSD = g_windowManager.GetWindow<CGUIDialogVideoOSD>(WINDOW_DIALOG_VIDEO_OSD);
+  CGUIDialog *pOSD = GetOSD();
   if (pOSD && !pOSD->IsDialogRunning())
   {
-    pOSD->SetAutoClose(3000);
+    if (!g_application.m_pPlayer->IsPlayingGame())
+      pOSD->SetAutoClose(3000);
     pOSD->Open();
   }
 }
@@ -474,4 +461,9 @@ void CGUIWindowFullScreen::TriggerOSD()
 bool CGUIWindowFullScreen::HasVisibleControls()
 {
   return m_controlStats->nCountVisible > 0;
+}
+
+CGUIDialog *CGUIWindowFullScreen::GetOSD()
+{
+  return g_windowManager.GetDialog(WINDOW_DIALOG_VIDEO_OSD);
 }

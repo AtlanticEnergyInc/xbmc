@@ -728,12 +728,12 @@ const std::string& CVideoInfoTag::GetDefaultRating() const
   return m_strDefaultRating;
 }
 
-const bool CVideoInfoTag::HasYear() const
+bool CVideoInfoTag::HasYear() const
 {
   return m_firstAired.IsValid() || m_premiered.IsValid();
 }
 
-const int CVideoInfoTag::GetYear() const
+int CVideoInfoTag::GetYear() const
 {
   if (m_firstAired.IsValid())
     return GetFirstAired().GetYear();
@@ -742,7 +742,7 @@ const int CVideoInfoTag::GetYear() const
   return 0;
 }
 
-const bool CVideoInfoTag::HasPremiered() const
+bool CVideoInfoTag::HasPremiered() const
 {
   return m_bHasPremiered;
 }
@@ -779,7 +779,7 @@ const std::string& CVideoInfoTag::GetDefaultUniqueID() const
   return m_strDefaultUniqueID;
 }
 
-const bool CVideoInfoTag::HasUniqueID() const
+bool CVideoInfoTag::HasUniqueID() const
 {
   return !m_uniqueIDs.empty();
 }
@@ -1375,19 +1375,22 @@ void CVideoInfoTag::SetVotes(int votes, const std::string& type /* = "" */)
 
 void CVideoInfoTag::SetPremiered(CDateTime premiered)
 {
-  m_premiered = premiered;
+  m_premiered = std::move(premiered);
   m_bHasPremiered = premiered.IsValid();
 }
 
 void CVideoInfoTag::SetPremieredFromDBDate(std::string premieredString)
 {
   CDateTime premiered;
-  premiered.SetFromDBDate(premieredString);
+  premiered.SetFromDBDate(std::move(premieredString));
   SetPremiered(premiered);
 }
 
 void CVideoInfoTag::SetYear(int year)
 {
+  if (year <= 0)
+    return;
+
   if (m_bHasPremiered)
     m_premiered.SetDate(year, m_premiered.GetMonth(), m_premiered.GetDay());
   else

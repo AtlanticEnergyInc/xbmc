@@ -19,14 +19,14 @@
  *
  */
 
+#include <map>
+
 #include "guilib/GUIDialog.h"
 #include "utils/Observer.h"
 #include "view/GUIViewControl.h"
 
 #include "pvr/PVRChannelNumberInputHandler.h"
 #include "pvr/channels/PVRChannelGroupsContainer.h"
-
-#include <map>
 
 class CFileItemList;
 
@@ -36,7 +36,7 @@ namespace PVR
   {
   public:
     CGUIDialogPVRChannelsOSD(void);
-    virtual ~CGUIDialogPVRChannelsOSD(void);
+    ~CGUIDialogPVRChannelsOSD(void) override;
     bool OnMessage(CGUIMessage& message) override;
     bool OnAction(const CAction &action) override;
     void OnWindowLoaded() override;
@@ -59,14 +59,13 @@ namespace PVR
     void ShowInfo(int item);
     void Clear();
     void Update();
-    CPVRChannelGroupPtr GetPlayingGroup();
+    void SaveSelectedItemPath(int iGroupID);
+    std::string GetLastSelectedItemPath(int iGroupID) const;
 
     CFileItemList *m_vecItems;
     CGUIViewControl m_viewControl;
     CPVRChannelGroupPtr m_group;
     std::map<int, std::string> m_groupSelectedItemPaths;
-    void SaveSelectedItemPath(int iGroupID);
-    std::string GetLastSelectedItemPath(int iGroupID) const;
     XbmcThreads::EndTime m_refreshTimeout;
   };
 }

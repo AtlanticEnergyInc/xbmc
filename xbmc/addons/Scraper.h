@@ -120,7 +120,7 @@ public:
   bool RequiresSettings() const { return m_requiressettings; }
   bool Supports(const CONTENT_TYPE &content) const;
 
-  bool IsInUse() const;
+  bool IsInUse() const override;
   bool IsNoop();
   bool IsPython() const { return m_isPython; }
 
@@ -155,10 +155,10 @@ public:
   bool GetArtwork(XFILE::CCurlFile &fcurl, CVideoInfoTag &details);
 
 private:
-  CScraper(const CScraper &rhs);
-  CScraper& operator=(const CScraper&);
-  CScraper(CScraper&&);
-  CScraper& operator=(CScraper&&);
+  CScraper(const CScraper &rhs) = delete;
+  CScraper& operator=(const CScraper&) = delete;
+  CScraper(CScraper&&) = delete;
+  CScraper& operator=(CScraper&&) = delete;
 
   std::string SearchStringEncoding() const
     { return m_parser.GetSearchStringEncoding(); }

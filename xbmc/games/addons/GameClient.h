@@ -25,7 +25,6 @@
 #include "addons/kodi-addon-dev-kit/include/kodi/kodi_game_types.h"
 #include "games/controllers/ControllerTypes.h"
 #include "games/GameTypes.h"
-#include "peripherals/EventScanRate.h"
 #include "threads/CriticalSection.h"
 
 #include <atomic>
@@ -41,12 +40,14 @@ namespace KODI
 namespace GAME
 {
 
+class CGameClientHardware;
 class CGameClientInGameSaves;
 class CGameClientJoystick;
 class CGameClientKeyboard;
 class CGameClientMouse;
 class IGameAudioCallback;
 class IGameClientPlayback;
+class IGameInputCallback;
 class IGameVideoCallback;
 
 // --- CGameClient -------------------------------------------------------------
@@ -60,7 +61,7 @@ class CGameClient : public ADDON::CAddonDll
 public:
   static std::unique_ptr<CGameClient> FromExtension(ADDON::CAddonInfo addonInfo, const cp_extension_t* ext);
 
-  CGameClient(ADDON::CAddonInfo addonInfo);
+  explicit CGameClient(ADDON::CAddonInfo addonInfo);
 
   virtual ~CGameClient(void);
 
@@ -79,9 +80,9 @@ public:
   // Start/stop gameplay
   bool Initialize(void);
   void Unload();
-  bool OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGameVideoCallback* video);
-  bool OpenStandalone(IGameAudioCallback* audio, IGameVideoCallback* video);
-  void Reset();
+  bool OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input);
+  bool OpenStandalone(IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input);
+  void Reset(unsigned int port);
   void CloseFile();
   const std::string& GetGamePath() const { return m_gamePath; }
 
@@ -121,7 +122,7 @@ public:
 
 private:
   // Private gameplay functions
-  bool InitializeGameplay(const std::string& gamePath, IGameAudioCallback* audio, IGameVideoCallback* video);
+  bool InitializeGameplay(const std::string& gamePath, IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input);
   bool LoadGameInfo();
   bool NormalizeAudio(IGameAudioCallback* audioCallback);
   void NotifyError(GAME_ERROR error);
@@ -185,8 +186,8 @@ private:
   size_t                m_serializeSize;
   IGameAudioCallback*   m_audio;               // The audio callback passed to OpenFile()
   IGameVideoCallback*   m_video;               // The video callback passed to OpenFile()
+  IGameInputCallback*   m_input = nullptr;     // The input callback passed to OpenFile()
   CGameClientTiming     m_timing;              // Class to scale playback to avoid resampling audio
-  PERIPHERALS::EventRateHandle m_inputRateHandle; // Handle while keeping the input sampling rate at the frame rate
   std::unique_ptr<IGameClientPlayback> m_playback; // Interface to control playback
   GAME_REGION           m_region;              // Region of the loaded game
 
@@ -197,6 +198,7 @@ private:
   std::map<int, std::unique_ptr<CGameClientJoystick>> m_ports;
   std::unique_ptr<CGameClientKeyboard> m_keyboard;
   std::unique_ptr<CGameClientMouse> m_mouse;
+  std::unique_ptr<CGameClientHardware> m_hardware;
 
   CCriticalSection m_critSection;
 

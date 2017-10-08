@@ -23,15 +23,16 @@
 #include "addons/AddonStatusHandler.h"
 #include "GUIUserMessages.h"
 #include "ServiceBroker.h"
+#include "addons/settings/AddonSettings.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
 #include "events/EventLog.h"
 #include "events/NotificationEvent.h"
 #include "guilib/GUIWindowManager.h"
-#include "dialogs/GUIDialogOK.h"
 #include "utils/URIUtils.h"
 #include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
 #include "filesystem/Directory.h"
+#include "messaging/helpers/DialogOKHelper.h" 
 #include "settings/lib/SettingSection.h"
 #include "utils/log.h"
 #include "utils/StringUtils.h"
@@ -45,17 +46,17 @@
 #include "addons/interfaces/Network.h"
 #include "addons/interfaces/GUI/General.h"
 
+using namespace KODI::MESSAGING;
+
 namespace ADDON
 {
 
 CAddonDll::CAddonDll(CAddonInfo addonInfo, BinaryAddonBasePtr addonBase)
   : CAddon(std::move(addonInfo)),
     m_pHelpers(nullptr),
-    m_bIsChild(false),
     m_binaryAddonBase(addonBase),
     m_pDll(nullptr),
     m_initialized(false),
-    m_needsavedsettings(false),
     m_interface{0}
 {
 }
@@ -63,25 +64,11 @@ CAddonDll::CAddonDll(CAddonInfo addonInfo, BinaryAddonBasePtr addonBase)
 CAddonDll::CAddonDll(CAddonInfo addonInfo)
   : CAddon(std::move(addonInfo)),
     m_pHelpers(nullptr),
-    m_bIsChild(false),
     m_binaryAddonBase(nullptr),
     m_pDll(nullptr),
     m_initialized(false),
-    m_needsavedsettings(false),
     m_interface{0}
 {
-}
-
-CAddonDll::CAddonDll(const CAddonDll &rhs)
-  : CAddon(rhs),
-    m_bIsChild(true)
-{
-  m_initialized       = rhs.m_initialized;
-  m_pDll              = rhs.m_pDll;
-  m_pHelpers          = rhs.m_pHelpers;
-  m_needsavedsettings = rhs.m_needsavedsettings;
-  m_parentLib = rhs.m_parentLib;
-  m_interface = rhs.m_interface;
 }
 
 CAddonDll::~CAddonDll()
@@ -95,38 +82,8 @@ bool CAddonDll::LoadDll()
   if (m_pDll)
     return true;
 
-  std::string strFileName;
+  std::string strFileName = LibPath();
   std::string strAltFileName;
-  if (!m_bIsChild)
-  {
-    strFileName = LibPath();
-  }
-  else
-  {
-    std::string libPath = LibPath();
-    if (!XFILE::CFile::Exists(libPath))
-    {
-      std::string temp = CSpecialProtocol::TranslatePath("special://xbmc/");
-      std::string tempbin = CSpecialProtocol::TranslatePath("special://xbmcbin/");
-      libPath.erase(0, temp.size());
-      libPath = tempbin + libPath;
-      if (!XFILE::CFile::Exists(libPath))
-      {
-        CLog::Log(LOGERROR, "ADDON: Could not locate %s", m_addonInfo.LibName().c_str());
-        return false;
-      }
-    }
-
-    std::stringstream childcount;
-    childcount << GetChildCount();
-    std::string extension = URIUtils::GetExtension(libPath);
-    strFileName = "special://temp/" + ID() + "-" + childcount.str() + extension;
-
-    XFILE::CFile::Copy(libPath, strFileName);
-
-    m_parentLib = libPath;
-    CLog::Log(LOGNOTICE, "ADDON: Loaded virtual child addon %s", strFileName.c_str());
-  }
 
   /* Check if lib being loaded exists, else check in XBMC binary location */
 #if defined(TARGET_ANDROID)
@@ -179,16 +136,8 @@ bool CAddonDll::LoadDll()
     delete m_pDll;
     m_pDll = NULL;
 
-    CGUIDialogOK* pDialog = g_windowManager.GetWindow<CGUIDialogOK>(WINDOW_DIALOG_OK);
-    if (pDialog)
-    {
-      std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
-      pDialog->SetHeading(CVariant{heading});
-      pDialog->SetLine(1, CVariant{24070});
-      pDialog->SetLine(2, CVariant{24071});
-      pDialog->SetLine(2, CVariant{"Can't load shared library"});
-      pDialog->Open();
-    }
+    std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
+    HELPERS::ShowOKDialogLines(CVariant{heading}, CVariant{24070}, CVariant{24071});
 
     return false;
   }
@@ -235,9 +184,8 @@ ADDON_STATUS CAddonDll::Create(ADDON_TYPE type, void* funcTable, void* info)
   {
     m_initialized = true;
   }
-  else if ((status == ADDON_STATUS_NEED_SETTINGS) || (status == ADDON_STATUS_NEED_SAVEDSETTINGS))
+  else if (status == ADDON_STATUS_NEED_SETTINGS)
   {
-    m_needsavedsettings = (status == ADDON_STATUS_NEED_SAVEDSETTINGS) ? true : false;
     status = TransferSettings();
     if (status == ADDON_STATUS_OK)
       m_initialized = true;
@@ -247,16 +195,9 @@ ADDON_STATUS CAddonDll::Create(ADDON_TYPE type, void* funcTable, void* info)
   else
   { // Addon failed initialization
     CLog::Log(LOGERROR, "ADDON: Dll %s - Client returned bad status (%i) from Create and is not usable", Name().c_str(), status);
-    
-    CGUIDialogOK* pDialog = g_windowManager.GetWindow<CGUIDialogOK>(WINDOW_DIALOG_OK);
-    if (pDialog)
-    {
-      std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
-      pDialog->SetHeading(CVariant{heading});
-      pDialog->SetLine(1, CVariant{24070});
-      pDialog->SetLine(2, CVariant{24071});
-      pDialog->Open();
-    }
+
+    std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
+    HELPERS::ShowOKDialogLines(CVariant{ heading }, CVariant{ 24070 }, CVariant{ 24071 });
   }
 
   return status;
@@ -291,9 +232,8 @@ ADDON_STATUS CAddonDll::Create(KODI_HANDLE firstKodiInstance)
   {
     m_initialized = true;
   }
-  else if ((status == ADDON_STATUS_NEED_SETTINGS) || (status == ADDON_STATUS_NEED_SAVEDSETTINGS))
+  else if (status == ADDON_STATUS_NEED_SETTINGS)
   {
-    m_needsavedsettings = (status == ADDON_STATUS_NEED_SAVEDSETTINGS);
     if ((status = TransferSettings()) == ADDON_STATUS_OK)
       m_initialized = true;
     else
@@ -304,15 +244,8 @@ ADDON_STATUS CAddonDll::Create(KODI_HANDLE firstKodiInstance)
     CLog::Log(LOGERROR, "ADDON: Dll %s - Client returned bad status (%i) from Create and is not usable", Name().c_str(), status);
 
     // @todo currently a copy and paste from other function and becomes improved.
-    CGUIDialogOK* pDialog = g_windowManager.GetWindow<CGUIDialogOK>(WINDOW_DIALOG_OK);
-    if (pDialog)
-    {
-      std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
-      pDialog->SetHeading(CVariant{heading});
-      pDialog->SetLine(1, CVariant{24070});
-      pDialog->SetLine(2, CVariant{24071});
-      pDialog->Open();
-    }
+    std::string heading = StringUtils::Format("%s: %s", CAddonInfo::TranslateType(Type(), true).c_str(), Name().c_str());
+    HELPERS::ShowOKDialogLines(CVariant{ heading }, CVariant{ 24070 }, CVariant{ 24071 });
   }
 
   return status;
@@ -323,26 +256,6 @@ void CAddonDll::Destroy()
   /* Unload library file */
   if (m_pDll)
   {
-    /* Inform dll to stop all activities */
-    if (m_needsavedsettings)  // If the addon supports it we save some settings to settings.xml before stop
-    {
-      char   str_id[64] = "";
-      char   str_value[1024];
-      CAddon::LoadUserSettings();
-      for (unsigned int i=0; (strcmp(str_id,"###End") != 0); i++)
-      {
-        strcpy(str_id, "###GetSavedSettings");
-        sprintf (str_value, "%i", i);
-        ADDON_STATUS status = m_pDll->SetSetting((const char*)&str_id, (void*)&str_value);
-
-        if (status == ADDON_STATUS_UNKNOWN)
-          break;
-
-        if (strcmp(str_id,"###End") != 0) UpdateSetting(str_id, str_value);
-      }
-      CAddon::SaveSettings();
-    }
-
     m_pDll->Destroy();
     m_pDll->Unload();
   }
@@ -353,8 +266,6 @@ void CAddonDll::Destroy()
   m_pHelpers = NULL;
   if (m_pDll)
   {
-    if (m_bIsChild)
-      XFILE::CFile::Delete(m_pDll->GetFile());
     delete m_pDll;
     m_pDll = NULL;
     CLog::Log(LOGINFO, "ADDON: Dll Destroyed - %s", Name().c_str());
@@ -587,6 +498,7 @@ bool CAddonDll::InitInterface(KODI_HANDLE firstKodiInstance)
   m_interface.toKodi->set_setting_float = set_setting_float;
   m_interface.toKodi->set_setting_string = set_setting_string;
   m_interface.toKodi->free_string = free_string;
+  m_interface.toKodi->free_string_array = free_string_array;
 
   // Create function list from addon to kodi, generated with calloc to have
   // compatible with other versions and everything with "0"
@@ -781,7 +693,7 @@ bool CAddonDll::get_setting_float(void* kodiBase, const char* id, float* value)
     return false;
   }
 
-  *value = std::static_pointer_cast<CSettingNumber>(setting)->GetValue();
+  *value = static_cast<float>(std::static_pointer_cast<CSettingNumber>(setting)->GetValue());
   return true;
 }
 
@@ -924,6 +836,19 @@ void CAddonDll::free_string(void* kodiBase, char* str)
   if (str)
     free(str);
 }
+
+void CAddonDll::free_string_array(void* kodiBase, char** arr, int numElements)
+{
+  if (arr)
+  {
+    for (int i = 0; i < numElements; ++i)
+    {
+      free(arr[i]);
+    }
+    free(arr);
+  }
+}
+
 
 //@}
 

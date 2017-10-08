@@ -21,12 +21,12 @@
 
 #include <vector>
 
+#include "addons/PVRClient.h"
 #include "dialogs/GUIDialogContextMenu.h"
 #include "guilib/GUIDialog.h"
 #include "view/GUIViewControl.h"
 
 #include "pvr/channels/PVRChannelGroup.h"
-#include "addons/PVRClient.h"
 
 namespace PVR
 {
@@ -34,7 +34,7 @@ namespace PVR
   {
   public:
     CGUIDialogPVRChannelManager(void);
-    virtual ~CGUIDialogPVRChannelManager(void);
+    ~CGUIDialogPVRChannelManager(void) override;
     bool OnMessage(CGUIMessage& message) override;
     bool OnAction(const CAction& action) override;
     void OnWindowLoaded(void) override;

@@ -35,7 +35,7 @@ using SettingConditionCheck = bool (*)(const std::string &condition, const std::
 class ISettingCondition
 {
 public:
-  ISettingCondition(CSettingsManager *settingsManager)
+  explicit ISettingCondition(CSettingsManager *settingsManager)
     : m_settingsManager(settingsManager)
   { }
   virtual ~ISettingCondition() = default;
@@ -49,14 +49,14 @@ protected:
 class CSettingConditionItem : public CBooleanLogicValue, public ISettingCondition
 {
 public:
-  CSettingConditionItem(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingConditionItem(CSettingsManager *settingsManager = nullptr)
     : ISettingCondition(settingsManager)
   { }
-  virtual ~CSettingConditionItem() = default;
+  ~CSettingConditionItem() override = default;
   
-  virtual bool Deserialize(const TiXmlNode *node);
-  virtual const char* GetTag() const { return SETTING_XML_ELM_CONDITION; }
-  virtual bool Check() const;
+  bool Deserialize(const TiXmlNode *node) override;
+  const char* GetTag() const override { return SETTING_XML_ELM_CONDITION; }
+  bool Check() const override;
 
 protected:
   std::string m_name;
@@ -66,25 +66,25 @@ protected:
 class CSettingConditionCombination : public CBooleanLogicOperation, public ISettingCondition
 {
 public:
-  CSettingConditionCombination(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingConditionCombination(CSettingsManager *settingsManager = nullptr)
     : ISettingCondition(settingsManager)
   { }
-  virtual ~CSettingConditionCombination() = default;
+  ~CSettingConditionCombination() override = default;
 
-  virtual bool Check() const;
+  bool Check() const override;
 
 private:
-  virtual CBooleanLogicOperation* newOperation() { return new CSettingConditionCombination(m_settingsManager); }
-  virtual CBooleanLogicValue* newValue() { return new CSettingConditionItem(m_settingsManager); }
+  CBooleanLogicOperation* newOperation() override { return new CSettingConditionCombination(m_settingsManager); }
+  CBooleanLogicValue* newValue() override { return new CSettingConditionItem(m_settingsManager); }
 };
 
 class CSettingCondition : public CBooleanLogic, public ISettingCondition
 {
 public:
-  CSettingCondition(CSettingsManager *settingsManager = nullptr);
-  virtual ~CSettingCondition() = default;
+  explicit CSettingCondition(CSettingsManager *settingsManager = nullptr);
+  ~CSettingCondition() override = default;
 
-  virtual bool Check() const;
+  bool Check() const override;
 };
 
 class CSettingConditionsManager

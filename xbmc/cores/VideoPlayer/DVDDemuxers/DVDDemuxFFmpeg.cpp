@@ -276,11 +276,12 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput, bool streaminfo, bool filein
   }
   else
   {
-    unsigned char* buffer = (unsigned char*)av_malloc(FFMPEG_FILE_BUFFER_SIZE);
-    m_ioContext = avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, this, dvd_file_read, NULL, dvd_file_seek);
-    m_ioContext->max_packet_size = m_pInput->GetBlockSize();
-    if(m_ioContext->max_packet_size)
-      m_ioContext->max_packet_size *= FFMPEG_FILE_BUFFER_SIZE / m_ioContext->max_packet_size;
+    int bufferSize = 4096;
+    int blockSize = m_pInput->GetBlockSize();
+    if (blockSize > 1)
+      bufferSize = blockSize;
+    unsigned char* buffer = (unsigned char*)av_malloc(bufferSize);
+    m_ioContext = avio_alloc_context(buffer, bufferSize, 0, this, dvd_file_read, NULL, dvd_file_seek);
 
     if(m_pInput->Seek(0, SEEK_POSSIBLE) == 0)
       m_ioContext->seekable = 0;
@@ -307,14 +308,15 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput, bool streaminfo, bool filein
       if (trySPDIFonly || (iformat && strcmp(iformat->name, "wav") == 0))
       {
         AVProbeData pd;
-        std::unique_ptr<uint8_t[]> probe_buffer (new uint8_t[FFMPEG_FILE_BUFFER_SIZE + AVPROBE_PADDING_SIZE]);
+        int probeBufferSize = 32768;
+        std::unique_ptr<uint8_t[]> probe_buffer (new uint8_t[probeBufferSize + AVPROBE_PADDING_SIZE]);
 
         // init probe data
         pd.buf = probe_buffer.get();
         pd.filename = strFile.c_str();
 
         // av_probe_input_buffer might have changed the buffer_size beyond our allocated amount
-        int buffer_size = std::min((int) FFMPEG_FILE_BUFFER_SIZE, m_ioContext->buffer_size);
+        int buffer_size = std::min((int) probeBufferSize, m_ioContext->buffer_size);
         buffer_size = m_ioContext->max_packet_size ? m_ioContext->max_packet_size : buffer_size;
         // read data using avformat's buffers
         pd.buf_size = avio_read(m_ioContext, pd.buf, buffer_size);
@@ -531,6 +533,24 @@ bool CDVDDemuxFFmpeg::Open(CDVDInputStream* pInput, bool streaminfo, bool filein
       else if (m_pFormatContext->iformat && strcmp(m_pFormatContext->iformat->name, "hls,applehttp") == 0)
       {
         nProgram = HLSSelectProgram();
+      }
+      else
+      {
+        // skip programs without or empty audio/video streams
+        for (unsigned int i = 0; nProgram == UINT_MAX && i < m_pFormatContext->nb_programs; i++)
+        {
+          for (unsigned int j = 0; j < m_pFormatContext->programs[i]->nb_stream_indexes; j++)
+          {
+            int idx = m_pFormatContext->programs[i]->stream_index[j];
+            AVStream *st = m_pFormatContext->streams[idx];
+            if ((st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && st->codec_info_nb_frames > 0) ||
+                (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && st->codecpar->sample_rate > 0))
+            {
+              nProgram = i;
+              break;
+            }
+          }
+        }
       }
     }
     CreateStreams(nProgram);
@@ -1041,8 +1061,8 @@ DemuxPacket* CDVDDemuxFFmpeg::Read()
     // we already check for a valid m_streams[pPacket->iStreamId] above
     else if (stream->type == STREAM_AUDIO)
     {
-      if (((CDemuxStreamAudio*)stream)->iChannels != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->channels ||
-          ((CDemuxStreamAudio*)stream)->iSampleRate != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->sample_rate)
+      if (static_cast<CDemuxStreamAudio*>(stream)->iChannels != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->channels ||
+          static_cast<CDemuxStreamAudio*>(stream)->iSampleRate != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->sample_rate)
       {
         // content has changed
         stream = AddStream(pPacket->iStreamId);
@@ -1050,8 +1070,8 @@ DemuxPacket* CDVDDemuxFFmpeg::Read()
     }
     else if (stream->type == STREAM_VIDEO)
     {
-      if (((CDemuxStreamVideo*)stream)->iWidth != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->width ||
-          ((CDemuxStreamVideo*)stream)->iHeight != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->height)
+      if (static_cast<CDemuxStreamVideo*>(stream)->iWidth != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->width ||
+          static_cast<CDemuxStreamVideo*>(stream)->iHeight != m_pFormatContext->streams[pPacket->iStreamId]->codecpar->height)
       {
         // content has changed
         stream = AddStream(pPacket->iStreamId);
@@ -1364,11 +1384,7 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
         if (m_bAVI && pStream->codecpar->codec_id == AV_CODEC_ID_H264)
           st->bPTSInvalid = true;
 
-#if defined(AVFORMAT_HAS_STREAM_GET_R_FRAME_RATE)
         AVRational r_frame_rate = av_stream_get_r_frame_rate(pStream);
-#else
-        AVRational r_frame_rate = pStream->r_frame_rate;
-#endif
 
         //average fps is more accurate for mkv files
         if (m_bMatroska && pStream->avg_frame_rate.den && pStream->avg_frame_rate.num)

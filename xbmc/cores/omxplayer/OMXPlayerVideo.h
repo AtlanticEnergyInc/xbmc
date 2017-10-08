@@ -83,17 +83,19 @@ protected:
   virtual void OnStartup();
   virtual void OnExit();
   virtual void Process();
+  void SendMessageBack(CDVDMsg* pMsg, int priority = 0);
+  MsgQueueReturnCode GetMessage(CDVDMsg** pMsg, unsigned int iTimeoutInMilliSeconds, int &priority);
+  std::string GetStereoMode();
 private:
 public:
   OMXPlayerVideo(OMXClock *av_clock, CDVDOverlayContainer* pOverlayContainer, CDVDMessageQueue& parent, CRenderManager& renderManager, CProcessInfo &processInfo);
   ~OMXPlayerVideo();
   bool OpenStream(CDVDStreamInfo hints) override;
-  void SendMessage(CDVDMsg* pMsg, int priority = 0) override { m_messageQueue.Put(pMsg, priority); }
-  void FlushMessages()                              override { m_messageQueue.Flush(); }
-  bool AcceptsData() const                          override { return !m_messageQueue.IsFull(); }
-  bool HasData() const                              override { return m_messageQueue.GetDataSize() > 0; }
-  bool IsInited() const                             override { return m_messageQueue.IsInited(); }
-  int  GetLevel() const                             override { return m_messageQueue.GetLevel(); }
+  void SendMessage(CDVDMsg* pMsg, int priority = 0) override;
+  void FlushMessages() override;
+  bool AcceptsData() const override;
+  bool HasData() const override;
+  bool IsInited() const override;
   bool IsStalled() const                            override { return m_stalled;  }
   bool IsEOS() override;
   void CloseStream(bool bWaitForBuffers) override;
@@ -107,7 +109,6 @@ public:
   void SetSpeed(int iSpeed) override;
   std::string GetPlayerInfo() override;
   int GetVideoBitrate() override;
-  std::string GetStereoMode() override;
   double GetOutputDelay() override;
   double GetSubtitleDelay()                         override { return m_iSubtitleDelay; }
   void SetSubtitleDelay(double delay)               override { m_iSubtitleDelay = delay; }

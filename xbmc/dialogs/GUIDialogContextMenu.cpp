@@ -78,9 +78,7 @@ CGUIDialogContextMenu::CGUIDialogContextMenu(void)
   m_coordY = 0.0f;
 }
 
-CGUIDialogContextMenu::~CGUIDialogContextMenu(void)
-{
-}
+CGUIDialogContextMenu::~CGUIDialogContextMenu(void) = default;
 
 bool CGUIDialogContextMenu::OnMessage(CGUIMessage &message)
 {
@@ -152,7 +150,7 @@ void CGUIDialogContextMenu::SetupButtons()
   }
 
   // fix up background images placement and size
-  CGUIControl *pControl = (CGUIControl *)GetControl(BACKGROUND_IMAGE);
+  CGUIControl *pControl = GetControl(BACKGROUND_IMAGE);
   if (pControl)
   {
     // first set size of background image

@@ -23,8 +23,8 @@
 #include "filesystem/SpecialProtocol.h"
 #include "guilib/GUIWindowManager.h"
 #include "utils/log.h"
-#ifdef HAS_DX
-#include "windowing/windows/WinSystemWin32DX.h"
+#if defined(TARGET_WINDOWS)
+#include "windowing/WindowingFactory.h"
 #endif
 
 namespace ADDON
@@ -38,8 +38,8 @@ CVisualization::CVisualization(ADDON::BinaryAddonBasePtr addonBase, float x, flo
   m_presetsPath = CSpecialProtocol::TranslatePath(Path());
   m_profilePath = CSpecialProtocol::TranslatePath(Profile());
 
-  m_struct = {0};
-#ifdef HAS_DX
+  m_struct = {{0}};
+#if defined(TARGET_WINDOWS)
   m_struct.props.device = g_Windowing.Get3D11Context();
 #else
   m_struct.props.device = nullptr;
@@ -56,7 +56,7 @@ CVisualization::CVisualization(ADDON::BinaryAddonBasePtr addonBase, float x, flo
   m_struct.toKodi.transfer_preset = transfer_preset;
 
   /* Open the class "kodi::addon::CInstanceVisualization" on add-on side */
-  if (!CreateInstance(&m_struct))
+  if (CreateInstance(&m_struct) != ADDON_STATUS_OK)
   {
     CLog::Log(LOGFATAL, "Visualization: failed to create instance for '%s' and not usable!", ID().c_str());
     return;

@@ -62,6 +62,14 @@ void CJNIMainActivity::_callNative(JNIEnv *env, jobject context, jlong funcAddr,
   ((void (*)(CVariant *))funcAddr)((CVariant *)variantAddr);
 }
 
+void CJNIMainActivity::_onVisibleBehindCanceled(JNIEnv* env, jobject context)
+{
+  (void)env;
+  (void)context;
+  if (m_appInstance)
+    m_appInstance->onVisibleBehindCanceled();
+}
+
 void CJNIMainActivity::runNativeOnUiThread(void (*callback)(CVariant *), CVariant* variant)
 {
   call_method<void>(m_context,
@@ -74,14 +82,6 @@ void CJNIMainActivity::_onVolumeChanged(JNIEnv *env, jobject context, jint volum
   (void)context;
   if(m_appInstance)
     m_appInstance->onVolumeChanged(volume);
-}
-
-void CJNIMainActivity::_onAudioFocusChange(JNIEnv *env, jobject context, jint focusChange)
-{
-  (void)env;
-  (void)context;
-  if(m_appInstance)
-    m_appInstance->onAudioFocusChange(focusChange);
 }
 
 void CJNIMainActivity::_onInputDeviceAdded(JNIEnv *env, jobject context, jint deviceId)

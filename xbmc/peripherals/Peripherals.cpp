@@ -44,7 +44,6 @@
 #include "devices/PeripheralNyxboard.h"
 #include "devices/PeripheralTuner.h"
 #include "dialogs/GUIDialogKaiToast.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogPeripheralSettings.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "FileItem.h"
@@ -58,6 +57,7 @@
 #include "GUIUserMessages.h"
 #include "input/Key.h"
 #include "messaging/ApplicationMessenger.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "messaging/ThreadMessage.h"
 #include "settings/lib/Setting.h"
 #include "settings/Settings.h"
@@ -77,14 +77,27 @@ using namespace KODI;
 using namespace JOYSTICK;
 using namespace PERIPHERALS;
 using namespace XFILE;
+using namespace KODI::MESSAGING;
 
-CPeripherals::CPeripherals() :
+CPeripherals::CPeripherals(ANNOUNCEMENT::CAnnouncementManager &announcements) :
+  m_announcements(announcements),
   m_eventScanner(this)
 {
+  // Register settings
+  std::set<std::string> settingSet;
+  settingSet.insert(CSettings::SETTING_INPUT_PERIPHERALS);
+  settingSet.insert(CSettings::SETTING_INPUT_PERIPHERALLIBRARIES);
+  settingSet.insert(CSettings::SETTING_INPUT_CONTROLLERCONFIG);
+  settingSet.insert(CSettings::SETTING_INPUT_TESTRUMBLE);
+  settingSet.insert(CSettings::SETTING_LOCALE_LANGUAGE);
+  CServiceBroker::GetSettings().RegisterCallback(this, settingSet);
 }
 
 CPeripherals::~CPeripherals()
 {
+  // Unregister settings
+  CServiceBroker::GetSettings().UnregisterCallback(this);
+
   Clear();
 }
 
@@ -122,13 +135,13 @@ void CPeripherals::Initialise()
   m_eventScanner.Start();
 
   MESSAGING::CApplicationMessenger::GetInstance().RegisterReceiver(this);
-  ANNOUNCEMENT::CAnnouncementManager::GetInstance().AddAnnouncer(this);
+  m_announcements.AddAnnouncer(this);
 #endif
 }
 
 void CPeripherals::Clear()
 {
-  ANNOUNCEMENT::CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
+  m_announcements.RemoveAnnouncer(this);
 
   m_eventScanner.Stop();
 
@@ -947,7 +960,7 @@ void CPeripherals::OnSettingAction(std::shared_ptr<const CSetting> setting)
         PeripheralPtr peripheral = GetByPath(pItem->GetPath());
         if (!peripheral || peripheral->GetSettings().empty())
         {
-          CGUIDialogOK::ShowAndGetInput(CVariant{35000}, CVariant{35004});
+          HELPERS::ShowOKDialogText(CVariant{35000}, CVariant{35004});
           continue;
         }
 
@@ -980,7 +993,7 @@ void CPeripherals::OnSettingAction(std::shared_ptr<const CSetting> setting)
     if (CGUIWindowAddonBrowser::SelectAddonID(ADDON::ADDON_PERIPHERALDLL, strAddonId, false, true, true, false, true) == 1 && !strAddonId.empty())
     {
       ADDON::AddonPtr addon;
-      if (ADDON::CAddonMgr::GetInstance().GetAddon(strAddonId, addon))
+      if (CServiceBroker::GetAddonMgr().GetAddon(strAddonId, addon))
         CGUIDialogAddonSettings::ShowForAddon(addon);
     }
   }

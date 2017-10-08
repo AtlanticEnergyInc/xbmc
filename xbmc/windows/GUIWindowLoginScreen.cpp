@@ -31,7 +31,6 @@
 #include "addons/Skin.h"
 #include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
 #include "dialogs/GUIDialogContextMenu.h"
-#include "dialogs/GUIDialogOK.h"
 #include "favourites/FavouritesService.h"
 #include "guilib/GUIMessage.h"
 #include "guilib/GUIWindowManager.h"
@@ -43,6 +42,7 @@
 #include "interfaces/json-rpc/JSONRPC.h"
 #endif
 #include "messaging/ApplicationMessenger.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "network/Network.h"
 #include "PlayListPlayer.h"
 #include "profiles/Profile.h"
@@ -121,7 +121,7 @@ bool CGUIWindowLoginScreen::OnMessage(CGUIMessage& message)
           else
           {
             if (!bCanceled && iItem != 0)
-              CGUIDialogOK::ShowAndGetInput(CVariant{20068}, CVariant{20117});
+              HELPERS::ShowOKDialogText(CVariant{20068}, CVariant{20117});
           }
         }
       }
@@ -276,8 +276,7 @@ void CGUIWindowLoginScreen::LoadProfile(unsigned int profile)
 {
   CServiceBroker::GetContextMenuManager().Deinit();
 
-  // stop service addons and give it some time before we start it again
-  ADDON::CAddonMgr::GetInstance().StopServices(true);
+  CServiceBroker::GetServiceAddons().Stop();
 
   // stop PVR related services
   CServiceBroker::GetPVRManager().Unload();
@@ -300,13 +299,13 @@ void CGUIWindowLoginScreen::LoadProfile(unsigned int profile)
 
   if (CProfilesManager::GetInstance().GetLastUsedProfileIndex() != profile)
   {
-    g_playlistPlayer.ClearPlaylist(PLAYLIST_VIDEO);
-    g_playlistPlayer.ClearPlaylist(PLAYLIST_MUSIC);
-    g_playlistPlayer.SetCurrentPlaylist(PLAYLIST_NONE);
+    CServiceBroker::GetPlaylistPlayer().ClearPlaylist(PLAYLIST_VIDEO);
+    CServiceBroker::GetPlaylistPlayer().ClearPlaylist(PLAYLIST_MUSIC);
+    CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(PLAYLIST_NONE);
   }
 
   // reload the add-ons, or we will first load all add-ons from the master account without checking disabled status
-  ADDON::CAddonMgr::GetInstance().ReInit();
+  CServiceBroker::GetAddonMgr().ReInit();
 
   // let CApplication know that we are logging into a new profile
   g_application.SetLoggingIn(true);
@@ -331,8 +330,7 @@ void CGUIWindowLoginScreen::LoadProfile(unsigned int profile)
 
   CServiceBroker::GetFavouritesService().ReInit(CProfilesManager::GetInstance().GetProfileUserDataFolder());
 
-  // start services which should run on login
-  ADDON::CAddonMgr::GetInstance().StartServices(false);
+  CServiceBroker::GetServiceAddons().Start();
 
   int firstWindow = g_SkinInfo->GetFirstWindow();
   // the startup window is considered part of the initialization as it most likely switches to the final window

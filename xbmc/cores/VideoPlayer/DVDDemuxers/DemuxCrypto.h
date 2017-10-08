@@ -25,7 +25,7 @@
 
 //CryptoSession is usually obtained once per stream, but could change if an key expires
 
-enum CryptoSessionSystem :uint16_t
+enum CryptoSessionSystem :uint8_t
 {
   CRYPTO_SESSION_SYSTEM_NONE,
   CRYPTO_SESSION_SYSTEM_WIDEVINE,
@@ -34,10 +34,11 @@ enum CryptoSessionSystem :uint16_t
 
 struct DemuxCryptoSession
 {
-  DemuxCryptoSession(const CryptoSessionSystem sys, const uint16_t sSize, const char *sData)
+  DemuxCryptoSession(const CryptoSessionSystem sys, const uint16_t sSize, const char *sData, const uint8_t flags)
     : sessionId(new char[sSize])
     , sessionIdSize(sSize)
     , keySystem(sys)
+    , flags(flags)
   {
     memcpy(sessionId, sData, sSize);
   };
@@ -51,19 +52,25 @@ struct DemuxCryptoSession
   char * sessionId;
   uint16_t sessionIdSize;
   CryptoSessionSystem keySystem;
+
+  static const uint8_t FLAG_SECURE_DECODER = 1;
+  uint8_t flags;
+private:
+  DemuxCryptoSession(const DemuxCryptoSession&) = delete;
+  DemuxCryptoSession& operator=(const DemuxCryptoSession&) = delete;
 };
 
 //CryptoInfo stores the information to decrypt a sample
 
 struct DemuxCryptoInfo
 {
-  DemuxCryptoInfo(const unsigned int numSubs)
+  explicit DemuxCryptoInfo(const unsigned int numSubs)
     : numSubSamples(numSubs)
     , flags(0)
     , clearBytes(new uint16_t[numSubs])
     , cipherBytes(new uint32_t[numSubs])
   {};
-  
+
   ~DemuxCryptoInfo()
   {
     delete[] clearBytes;
@@ -78,4 +85,7 @@ struct DemuxCryptoInfo
 
   uint8_t iv[16]; // initialization vector
   uint8_t kid[16]; // key id
+private:
+  DemuxCryptoInfo(const DemuxCryptoInfo&) = delete;
+  DemuxCryptoInfo& operator=(const DemuxCryptoInfo&) = delete;
 };

@@ -28,20 +28,20 @@ namespace ADDON
                         public IImage
   {
   public:
-    CImageDecoder(ADDON::BinaryAddonBasePtr addonBase);
-    virtual ~CImageDecoder();
+    explicit CImageDecoder(ADDON::BinaryAddonBasePtr addonBase);
+    ~CImageDecoder() override;
 
     bool Create(const std::string& mimetype);
 
     bool CreateThumbnailFromSurface(unsigned char*, unsigned int, unsigned int,
                                     unsigned int, unsigned int, const std::string&,
-                                    unsigned char*&, unsigned int&) { return false; }
+                                    unsigned char*&, unsigned int&) override { return false; }
 
     bool LoadImageFromMemory(unsigned char* buffer, unsigned int bufSize,
-                             unsigned int width, unsigned int height);
+                             unsigned int width, unsigned int height) override;
     bool Decode(unsigned char* const pixels, unsigned int width,
                 unsigned int height, unsigned int pitch,
-                unsigned int format);
+                unsigned int format) override;
 
     const std::string& GetMimetypes() const { return m_mimetype; }
     const std::string& GetExtensions() const { return m_extension; }

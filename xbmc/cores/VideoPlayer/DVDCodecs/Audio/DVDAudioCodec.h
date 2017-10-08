@@ -63,8 +63,8 @@ class CDVDAudioCodec
 {
 public:
 
-  CDVDAudioCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
-  virtual ~CDVDAudioCodec() {}
+  explicit CDVDAudioCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
+  virtual ~CDVDAudioCodec() = default;
 
   /*
    * Open the decoder, returns true on success

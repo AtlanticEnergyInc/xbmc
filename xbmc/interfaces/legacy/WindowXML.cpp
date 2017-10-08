@@ -62,30 +62,30 @@ namespace XBMCAddon
         InterceptorDialog<CGUIMediaWindow>("CGUIMediaWindow",_window,windowid,xmlfile), xwin(_window) 
       { }
 
-      virtual void AllocResources(bool forceLoad = false) override
+      void AllocResources(bool forceLoad = false) override
       { XBMC_TRACE; if(up()) CGUIMediaWindow::AllocResources(forceLoad); else checkedv(AllocResources(forceLoad)); }
-      virtual  void FreeResources(bool forceUnLoad = false) override
+       void FreeResources(bool forceUnLoad = false) override
       { XBMC_TRACE; if(up()) CGUIMediaWindow::FreeResources(forceUnLoad); else checkedv(FreeResources(forceUnLoad)); }
-      virtual bool OnClick(int iItem, const std::string &player = "") override { XBMC_TRACE; return up() ? CGUIMediaWindow::OnClick(iItem, player) : checkedb(OnClick(iItem)); }
+      bool OnClick(int iItem, const std::string &player = "") override { XBMC_TRACE; return up() ? CGUIMediaWindow::OnClick(iItem, player) : checkedb(OnClick(iItem)); }
 
-      virtual void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override
+      void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override
       { XBMC_TRACE; if(up()) CGUIMediaWindow::Process(currentTime,dirtyregions); else checkedv(Process(currentTime,dirtyregions)); }
 
       // this is a hack to SKIP the CGUIMediaWindow
-      virtual bool OnAction(const CAction &action) override
+      bool OnAction(const CAction &action) override
       { XBMC_TRACE; return up() ? CGUIWindow::OnAction(action) : checkedb(OnAction(action)); }
 
     protected:
       // CGUIWindow
-      virtual bool LoadXML(const std::string &strPath, const std::string &strPathLower) override
+      bool LoadXML(const std::string &strPath, const std::string &strPathLower) override
       { XBMC_TRACE; return up() ? CGUIMediaWindow::LoadXML(strPath,strPathLower) : xwin->LoadXML(strPath,strPathLower); }
 
       // CGUIMediaWindow
-      virtual void GetContextButtons(int itemNumber, CContextButtons &buttons) override
+      void GetContextButtons(int itemNumber, CContextButtons &buttons) override
       { XBMC_TRACE; if (up()) CGUIMediaWindow::GetContextButtons(itemNumber,buttons); else xwin->GetContextButtons(itemNumber,buttons); }
-      virtual bool Update(const std::string &strPath) override
+      bool Update(const std::string &strPath) override
       { XBMC_TRACE; return up() ? CGUIMediaWindow::Update(strPath) : xwin->Update(strPath); }
-      virtual void SetupShares() override { XBMC_TRACE; if(up()) CGUIMediaWindow::SetupShares(); else checkedv(SetupShares()); }
+      void SetupShares() override { XBMC_TRACE; if(up()) CGUIMediaWindow::SetupShares(); else checkedv(SetupShares()); }
 
       friend class WindowXML;
       friend class WindowXMLDialog;
@@ -166,7 +166,7 @@ namespace XBMCAddon
 
       // Tells the window to add the item to FileItem vector
       {
-        LOCKGUI;
+        XBMCAddonUtils::GuiLock lock(languageHook, false);
 
         //----------------------------------------------------
         // Former AddItem call
@@ -194,7 +194,7 @@ namespace XBMCAddon
     void WindowXML::addItems(const std::vector<Alternative<String, const XBMCAddon::xbmcgui::ListItem* > > & items)
     {
     XBMC_TRACE;
-    LOCKGUI;
+    XBMCAddonUtils::GuiLock lock(languageHook, false);
     for (auto item : items)
       {
         AddonClass::Ref<ListItem> ritem = item.which() == XBMCAddon::first ? ListItem::fromString(item.former()) : AddonClass::Ref<ListItem>(item.later());
@@ -209,7 +209,7 @@ namespace XBMCAddon
     {
       XBMC_TRACE;
       // Tells the window to remove the item at the specified position from the FileItem vector
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       A(m_vecItems)->Remove(position);
       A(m_viewControl).SetItems(*(A(m_vecItems)));
     }
@@ -217,7 +217,7 @@ namespace XBMCAddon
     int WindowXML::getCurrentListPosition()
     {
       XBMC_TRACE;
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       int listPos = A(m_viewControl).GetSelectedItem();
       return listPos;
     }
@@ -225,13 +225,13 @@ namespace XBMCAddon
     void WindowXML::setCurrentListPosition(int position)
     {
       XBMC_TRACE;
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       A(m_viewControl).SetSelectedItem(position);
     }
 
     ListItem* WindowXML::getListItem(int position)
     {
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       //CFileItemPtr fi = pwx->GetListItem(listPos);
       CFileItemPtr fi;
       {
@@ -261,7 +261,7 @@ namespace XBMCAddon
     void WindowXML::clearList()
     {
       XBMC_TRACE;
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       A(ClearFileItems());
 
       A(m_viewControl).SetItems(*(A(m_vecItems)));
@@ -276,14 +276,14 @@ namespace XBMCAddon
     void WindowXML::setContent(const String& value)
     {
       XBMC_TRACE;
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       A(m_vecItems)->SetContent(value);
     }
 
     int WindowXML::getCurrentContainerId()
     {
       XBMC_TRACE;
-      LOCKGUI;
+      XBMCAddonUtils::GuiLock lock(languageHook, false);
       return A(m_viewControl.GetCurrentControl());
     }
 

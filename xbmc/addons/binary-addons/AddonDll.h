@@ -32,16 +32,14 @@ namespace ADDON
   {
   public:
     CAddonDll(CAddonInfo addonInfo, BinaryAddonBasePtr addonBase);
-    CAddonDll(CAddonInfo addonInfo);
+    explicit CAddonDll(CAddonInfo addonInfo);
+    ~CAddonDll() override;
 
-    //FIXME: does shallow pointer copy. no copy assignment op
-    CAddonDll(const CAddonDll &rhs);
-    virtual ~CAddonDll();
     virtual ADDON_STATUS GetStatus();
 
     // addon settings
-    virtual void SaveSettings();
-    virtual std::string GetSetting(const std::string& key);
+    void SaveSettings() override;
+    std::string GetSetting(const std::string& key) override;
 
     ADDON_STATUS Create(ADDON_TYPE type, void* funcTable, void* info);
     void Destroy();
@@ -74,9 +72,8 @@ namespace ADDON
 
   protected:
     bool Initialized() { return m_initialized; }
-    static uint32_t GetChildCount() { static uint32_t childCounter = 0; return childCounter++; }
+
     CAddonInterfaces* m_pHelpers;
-    bool m_bIsChild;
     std::string m_parentLib;
 
   private:
@@ -102,15 +99,10 @@ namespace ADDON
     DllAddon* m_pDll;
     bool m_initialized;
     bool LoadDll();
-    bool m_needsavedsettings;
     std::map<std::string, std::pair<ADDON_TYPE, KODI_HANDLE>> m_usedInstances;
 
     virtual ADDON_STATUS TransferSettings();
 
-    static void AddOnStatusCallback(void *userData, const ADDON_STATUS status, const char* msg);
-    static bool AddOnGetSetting(void *userData, const char *settingName, void *settingValue);
-    static void AddOnOpenSettings(const char *url, bool bReload);
-    static void AddOnOpenOwnSettings(void *userData, bool bReload);
     bool UpdateSettingInActiveDialog(const char* id, const std::string& value);
 
     /// addon to kodi basic callbacks below
@@ -139,6 +131,7 @@ namespace ADDON
     static bool set_setting_float(void* kodiBase, const char* id, float value);
     static bool set_setting_string(void* kodiBase, const char* id, const char* value);
     static void free_string(void* kodiBase, char* str);
+    static void free_string_array(void* kodiBase, char** arr, int numElements);
     //@}
   };
 

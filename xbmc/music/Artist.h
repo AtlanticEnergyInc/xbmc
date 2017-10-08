@@ -73,6 +73,8 @@ public:
     idArtist = -1;
     strPath.clear();
     dateAdded.Reset();
+    bScrapedMBID = false;
+    strLastScraped.clear();
   }
 
   /*! \brief Load artist information from an XML file.
@@ -105,6 +107,8 @@ public:
   CFanart fanart;
   std::vector<std::pair<std::string,std::string> > discography;
   CDateTime dateAdded;
+  bool bScrapedMBID;
+  std::string strLastScraped;
 };
 
 class CArtistCredit
@@ -113,8 +117,8 @@ class CArtistCredit
   friend class CMusicDatabase;
 
 public:
-  CArtistCredit() : idArtist(-1) { }
-  CArtistCredit(std::string strArtist) : m_strArtist(strArtist) { }
+  CArtistCredit() : idArtist(-1), m_bScrapedMBID(false) { }
+  explicit CArtistCredit(std::string strArtist) : m_strArtist(strArtist) { }
   CArtistCredit(std::string strArtist, std::string strMusicBrainzArtistID)
     : m_strArtist(strArtist), m_strMusicBrainzArtistID(strMusicBrainzArtistID) {  }
   CArtistCredit(std::string strArtist, std::string strSortName, std::string strMusicBrainzArtistID)
@@ -138,16 +142,19 @@ public:
   std::string GetSortName() const              { return m_strSortName; }
   std::string GetMusicBrainzArtistID() const   { return m_strMusicBrainzArtistID; }
   int         GetArtistId() const              { return idArtist; }
+  bool HasScrapedMBID() const { return m_bScrapedMBID; }
   void SetArtist(const std::string &strArtist) { m_strArtist = strArtist; }
   void SetSortName(const std::string &strSortName) { m_strSortName = strSortName; }
   void SetMusicBrainzArtistID(const std::string &strMusicBrainzArtistID) { m_strMusicBrainzArtistID = strMusicBrainzArtistID; }
   void SetArtistId(int idArtist)               { this->idArtist = idArtist; }
+  void SetScrapedMBID(bool scrapedMBID) { this->m_bScrapedMBID = scrapedMBID; }
 
 private:
   long idArtist;
   std::string m_strArtist;
   std::string m_strSortName;
   std::string m_strMusicBrainzArtistID;
+  bool m_bScrapedMBID; // Flag that mbid is from album merge of scarper results not derived from tags
 };
 
 typedef std::vector<CArtist> VECARTISTS;
@@ -162,7 +169,7 @@ const long BLANKARTIST_ID = 1;
 class CMusicRole
 {
 public:
-  CMusicRole() { }
+  CMusicRole() = default;
   CMusicRole(std::string strRole, std::string strArtist) : idRole(-1), m_strRole(strRole), m_strArtist(strArtist), idArtist(-1) { }
   CMusicRole(int role, std::string strRole, std::string strArtist, long ArtistId) : idRole(role), m_strRole(strRole), m_strArtist(strArtist), idArtist(ArtistId) { }
   std::string GetArtist() const { return m_strArtist; }

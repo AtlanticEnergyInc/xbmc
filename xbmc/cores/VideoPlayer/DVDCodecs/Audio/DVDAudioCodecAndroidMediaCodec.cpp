@@ -29,6 +29,7 @@
 #include "DVDAudioCodecAndroidMediaCodec.h"
 
 #include "DVDCodecs/DVDCodecs.h"
+#include "DVDCodecs/DVDFactoryCodec.h"
 #include "utils/log.h"
 #include "settings/AdvancedSettings.h"
 #include "cores/VideoPlayer/DVDDemuxers/DemuxCrypto.h"
@@ -69,6 +70,17 @@ CDVDAudioCodecAndroidMediaCodec::CDVDAudioCodecAndroidMediaCodec(CProcessInfo &p
 CDVDAudioCodecAndroidMediaCodec::~CDVDAudioCodecAndroidMediaCodec()
 {
   Dispose();
+}
+
+CDVDAudioCodec* CDVDAudioCodecAndroidMediaCodec::Create(CProcessInfo &processInfo)
+{
+  return new CDVDAudioCodecAndroidMediaCodec(processInfo);
+}
+
+bool CDVDAudioCodecAndroidMediaCodec::Register()
+{
+  CDVDFactoryCodec::RegisterHWAudioCodec("mediacodec_dec", &CDVDAudioCodecAndroidMediaCodec::Create);
+  return true;
 }
 
 bool CDVDAudioCodecAndroidMediaCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
@@ -226,8 +238,7 @@ void CDVDAudioCodecAndroidMediaCodec::Dispose()
 
 bool CDVDAudioCodecAndroidMediaCodec::AddData(const DemuxPacket &packet)
 {
-  if (g_advancedSettings.CanLogComponent(LOGAUDIO))
-    CLog::Log(LOGDEBUG, "CDVDAudioCodecAndroidMediaCodec::AddData dts:%0.4lf pts:%0.4lf size(%d)", packet.dts, packet.pts, packet.iSize);
+  CLog::Log(LOGDEBUG, LOGAUDIO, "CDVDAudioCodecAndroidMediaCodec::AddData dts:%0.4lf pts:%0.4lf size(%d)", packet.dts, packet.pts, packet.iSize);
 
   if (packet.pData)
   {
@@ -509,8 +520,7 @@ int CDVDAudioCodecAndroidMediaCodec::GetData(uint8_t** dst)
       xbmc_jnienv()->ExceptionClear();
     }
 
-    if (g_advancedSettings.CanLogComponent(LOGAUDIO))
-      CLog::Log(LOGDEBUG, "CDVDAudioCodecAndroidMediaCodec::GetData index(%d), size(%d)", index, m_bufferUsed);
+    CLog::Log(LOGDEBUG, LOGAUDIO, "CDVDAudioCodecAndroidMediaCodec::GetData index(%d), size(%d)", index, m_bufferUsed);
 
     m_currentPts = bufferInfo.presentationTimeUs() == (int64_t)DVD_NOPTS_VALUE ? DVD_NOPTS_VALUE :  bufferInfo.presentationTimeUs();
 

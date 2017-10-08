@@ -97,6 +97,35 @@ extern "C"
    * @remarks Required if bSupportsEPG is set to true. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
    */
   PVR_ERROR GetEPGForChannel(ADDON_HANDLE handle, const PVR_CHANNEL& channel, time_t iStart, time_t iEnd);
+
+  /*
+   * Check if the given EPG tag can be recorded.
+   * @param tag the epg tag to check.
+   * @param [out] bIsRecordable Set to true if the tag can be recorded.
+   * @return PVR_ERROR_NO_ERROR if bIsRecordable has been set successfully.
+   * @remarks Optional, return PVR_ERROR_NOT_IMPLEMENTED to let Kodi decide.
+   */
+  PVR_ERROR IsEPGTagRecordable(const EPG_TAG* tag, bool* bIsRecordable);
+
+  /*
+   * Check if the given EPG tag can be played.
+   * @param tag the epg tag to check.
+   * @param [out] bIsPlayable Set to true if the tag can be played.
+   * @return PVR_ERROR_NO_ERROR if bIsPlayable has been set successfully.
+   * @remarks Required if add-on supports playing epg tags. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   */
+  PVR_ERROR IsEPGTagPlayable(const EPG_TAG* tag, bool* bIsPlayable);
+
+  /*!
+   * Get the stream properties for an epg tag from the backend.
+   * @param[in] tag The epg tag to get the stream properties for.
+   * @param[inout] properties in: an array for the properties to return, out: the properties required to play the stream.
+   * @param[inout] iPropertiesCount in: the size of the properties array, out: the number of properties returned.
+   * @return PVR_ERROR_NO_ERROR if the stream is available.
+   * @remarks Required if add-on supports playing epg tags. In this case your implementation must fill the property PVR_STREAM_PROPERTY_STREAMURL with the URL Kodi should resolve to playback the epg tag. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   */
+  PVR_ERROR GetEPGTagStreamProperties(const EPG_TAG* tag, PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount);
+
   //@}
 
   /*! @name PVR channel group methods
@@ -262,6 +291,14 @@ extern "C"
   PVR_ERROR RenameRecording(const PVR_RECORDING& recording);
 
   /*!
+   * Set the lifetime of a recording on the backend.
+   * @param recording The recording to change the lifetime for. recording.iLifetime contains the new lieftime value.
+   * @return PVR_ERROR_NO_ERROR if the recording's lifetime has been set successfully.
+   * @remarks Required if bSupportsRecordingsLifetimeChange is set to true. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   */
+  PVR_ERROR SetRecordingLifetime(const PVR_RECORDING* recording);
+
+  /*!
    * Set the play count of a recording on the backend.
    * @param recording The recording to change the play count.
    * @param count Play count.
@@ -402,28 +439,40 @@ extern "C"
   long long LengthLiveStream(void);
 
   /*!
-   * Switch to another channel. Only to be called when a live stream has already been opened.
-   * @param channel The channel to switch to.
-   * @return True if the switch was successful, false otherwise.
-   * @remarks Required if bHandlesInputStream or bHandlesDemuxing is set to true. Return false if this add-on won't provide this function.
-   */
-  bool SwitchChannel(const PVR_CHANNEL& channel);
-
-  /*!
    * Get the signal status of the stream that's currently open.
    * @param signalStatus The signal status.
    * @return True if the signal status has been read successfully, false otherwise.
-   * @remarks Optional, and only used if bHandlesInputStream or bHandlesDemuxing is set to true. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   * @remarks Optional, and only used if PVR_ADDON_CAPABILITIES::bHandlesInputStream or PVR_ADDON_CAPABILITIES::bHandlesDemuxing is set to true. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
    */
   PVR_ERROR SignalStatus(PVR_SIGNAL_STATUS& signalStatus);
 
   /*!
-   * Get the stream URL for a channel from the backend. Used by the MediaPortal add-on.
-   * @param channel The channel to get the stream URL for.
-   * @return The requested URL.
-   * @remarks Optional, and only used if bHandlesInputStream is set to true. Return NULL if this add-on won't provide this function.
+   * Get the descramble information of the stream that's currently open.
+   * @param[out] descrambleInfo The descramble information.
+   * @return True if the decramble information has been read successfully, false otherwise.
+   * @remarks Optional, and only used if PVR_ADDON_CAPABILITIES::bSupportsDescrambleInfo is set to true. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
    */
-  const char* GetLiveStreamURL(const PVR_CHANNEL& channel);
+  PVR_ERROR GetDescrambleInfo(PVR_DESCRAMBLE_INFO* descrambleInfo);
+
+  /*!
+   * Get the stream properties for a channel from the backend.
+   * @param[in] channel The channel to get the stream properties for.
+   * @param[inout] properties in: an array for the properties to return, out: the properties required to play the stream.
+   * @param[inout] iPropertiesCount in: the size of the properties array, out: the number of properties returned.
+   * @return PVR_ERROR_NO_ERROR if the stream is available.
+   * @remarks Required if PVR_ADDON_CAPABILITIES::bSupportsTV or PVR_ADDON_CAPABILITIES::bSupportsRadio are set to true and PVR_ADDON_CAPABILITIES::bHandlesInputStream is set to false. In this case the implementation must fill the property PVR_STREAM_PROPERTY_STREAMURL with the URL Kodi should resolve to playback the channel. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   */
+  PVR_ERROR GetChannelStreamProperties(const PVR_CHANNEL* channel, PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount);
+
+  /*!
+   * Get the stream properties for a recording from the backend.
+   * @param[in] channel The recording to get the stream properties for.
+   * @param[inout] properties in: an array for the properties to return, out: the properties required to play the stream.
+   * @param[inout] iPropertiesCount in: the size of the properties array, out: the number of properties returned.
+   * @return PVR_ERROR_NO_ERROR if the stream is available.
+   * @remarks Required if PVR_ADDON_CAPABILITIES::bSupportsRecordings is set to true and the add-on does not implement recording stream functions (OpenRecordedStream, ...). In this case your implementation must fill the property PVR_STREAM_PROPERTY_STREAMURL with the URL Kodi should resolve to playback the recording. Return PVR_ERROR_NOT_IMPLEMENTED if this add-on won't provide this function.
+   */
+  PVR_ERROR GetRecordingStreamProperties(const PVR_RECORDING* recording, PVR_NAMED_VALUE* properties, unsigned int* iPropertiesCount);
 
   /*!
    * Get the stream properties of the stream that's currently being read.
@@ -521,14 +570,6 @@ extern "C"
   //@}
 
   /*!
-   * Delay to use when using switching channels for add-ons not providing an input stream.
-   * If the add-on does provide an input stream, then this method will not be called.
-   * Those add-ons can do that in OpenLiveStream() if needed.
-   * @return The delay in milliseconds.
-   */
-  unsigned int GetChannelSwitchDelay(void);
-
-  /*!
    * Check if the backend support pausing the currently playing stream
    * This will enable/disable the pause button in XBMC based on the return value
    * @return false if the PVR addon/backend does not support pausing, true if possible
@@ -622,6 +663,11 @@ extern "C"
   void OnPowerSavingDeactivated();
 
   /*!
+   * Get stream times. Intermediate, will be moved to inputstream
+   */
+  PVR_ERROR GetStreamTimes(PVR_STREAM_TIMES *times);
+
+  /*!
    * Called by XBMC to assign the function pointers of this add-on to pClient.
    * @param ptr The struct to assign the function pointers to.
    */
@@ -640,7 +686,10 @@ extern "C"
     pClient->toAddon.OpenDialogChannelScan          = OpenDialogChannelScan;
     pClient->toAddon.MenuHook                       = CallMenuHook;
 
-    pClient->toAddon.GetEpg                         = GetEPGForChannel;
+    pClient->toAddon.GetEPGForChannel               = GetEPGForChannel;
+    pClient->toAddon.IsEPGTagRecordable             = IsEPGTagRecordable;
+    pClient->toAddon.IsEPGTagPlayable               = IsEPGTagPlayable;
+    pClient->toAddon.GetEPGTagStreamProperties      = GetEPGTagStreamProperties;
 
     pClient->toAddon.GetChannelGroupsAmount         = GetChannelGroupsAmount;
     pClient->toAddon.GetChannelGroups               = GetChannelGroups;
@@ -660,6 +709,7 @@ extern "C"
     pClient->toAddon.UndeleteRecording              = UndeleteRecording;
     pClient->toAddon.DeleteAllRecordingsFromTrash   = DeleteAllRecordingsFromTrash;
     pClient->toAddon.RenameRecording                = RenameRecording;
+    pClient->toAddon.SetRecordingLifetime           = SetRecordingLifetime;
     pClient->toAddon.SetRecordingPlayCount          = SetRecordingPlayCount;
     pClient->toAddon.SetRecordingLastPlayedPosition = SetRecordingLastPlayedPosition;
     pClient->toAddon.GetRecordingLastPlayedPosition = GetRecordingLastPlayedPosition;
@@ -678,10 +728,10 @@ extern "C"
     pClient->toAddon.SeekLiveStream                 = SeekLiveStream;
     pClient->toAddon.PositionLiveStream             = PositionLiveStream;
     pClient->toAddon.LengthLiveStream               = LengthLiveStream;
-    pClient->toAddon.SwitchChannel                  = SwitchChannel;
     pClient->toAddon.SignalStatus                   = SignalStatus;
-    pClient->toAddon.GetLiveStreamURL               = GetLiveStreamURL;
-    pClient->toAddon.GetChannelSwitchDelay          = GetChannelSwitchDelay;
+    pClient->toAddon.GetDescrambleInfo              = GetDescrambleInfo;
+    pClient->toAddon.GetChannelStreamProperties     = GetChannelStreamProperties;
+    pClient->toAddon.GetRecordingStreamProperties   = GetRecordingStreamProperties;
     pClient->toAddon.CanPauseStream                 = CanPauseStream;
     pClient->toAddon.PauseStream                    = PauseStream;
     pClient->toAddon.CanSeekStream                  = CanSeekStream;
@@ -715,6 +765,6 @@ extern "C"
     pClient->toAddon.OnSystemWake                   = OnSystemWake;
     pClient->toAddon.OnPowerSavingActivated         = OnPowerSavingActivated;
     pClient->toAddon.OnPowerSavingDeactivated       = OnPowerSavingDeactivated;
+    pClient->toAddon.GetStreamTimes                 = GetStreamTimes;
   };
 };
-

@@ -36,10 +36,12 @@ class CSetting;
 namespace ADDON
 {
 
+class CSkinSettingUpdateHandler;
+
 class CSkinSetting
 {
 public:
-  virtual ~CSkinSetting() { }
+  virtual ~CSkinSetting() = default;
 
   bool Serialize(TiXmlElement* parent) const;
 
@@ -58,16 +60,16 @@ typedef std::shared_ptr<CSkinSetting> CSkinSettingPtr;
 class CSkinSettingString : public CSkinSetting
 {
 public:
-  virtual ~CSkinSettingString() { }
+  ~CSkinSettingString() override = default;
 
-  virtual std::string GetType() const { return "string"; }
+  std::string GetType() const override { return "string"; }
 
-  virtual bool Deserialize(const TiXmlElement* element);
+  bool Deserialize(const TiXmlElement* element) override;
 
   std::string value;
 
 protected:
-  virtual bool SerializeSetting(TiXmlElement* element) const;
+  bool SerializeSetting(TiXmlElement* element) const override;
 };
 
 typedef std::shared_ptr<CSkinSettingString> CSkinSettingStringPtr;
@@ -78,16 +80,16 @@ public:
   CSkinSettingBool()
     : value(false)
   { }
-  virtual ~CSkinSettingBool() { }
+  ~CSkinSettingBool() override = default;
 
-  virtual std::string GetType() const { return "bool"; }
+  std::string GetType() const override { return "bool"; }
 
-  virtual bool Deserialize(const TiXmlElement* element);
+  bool Deserialize(const TiXmlElement* element) override;
 
   bool value;
 
 protected:
-  virtual bool SerializeSetting(TiXmlElement* element) const;
+  bool SerializeSetting(TiXmlElement* element) const override;
 };
 
 typedef std::shared_ptr<CSkinSettingBool> CSkinSettingBoolPtr;
@@ -109,11 +111,9 @@ public:
   static std::unique_ptr<CSkinInfo> FromExtension(CAddonInfo addonInfo, const cp_extension_t* ext);
 
   //FIXME: CAddonCallbacksGUI/WindowXML hack
-  explicit CSkinInfo(CAddonInfo addonInfo, const RESOLUTION_INFO& resolution = RESOLUTION_INFO())
-      : CAddon(std::move(addonInfo)),
-        m_defaultRes(resolution),
-        m_effectsSlowDown(1.f),
-        m_debugging(false) {}
+  explicit CSkinInfo(
+      CAddonInfo addonInfo,
+      const RESOLUTION_INFO& resolution = RESOLUTION_INFO());
 
   CSkinInfo(
       CAddonInfo addonInfo,
@@ -121,6 +121,8 @@ public:
       const std::vector<RESOLUTION_INFO>& resolutions,
       float effectsSlowDown,
       bool debugging);
+
+  ~CSkinInfo() override;
 
   /*! \brief Load resolution information from directories in Path().
    */
@@ -173,7 +175,7 @@ public:
    */
   void GetSkinPaths(std::vector<std::string> &paths) const;
 
-  bool IsInUse() const;
+  bool IsInUse() const override;
 
   const std::string& GetCurrentAspect() const { return m_currentAspect; }
 
@@ -188,8 +190,8 @@ public:
 
   /*! \brief Don't handle skin settings like normal addon settings
    */
-  virtual bool HasSettings() { return false; }
-  virtual bool HasUserSettings() { return false; }
+  bool HasSettings() override { return false; }
+  bool HasUserSettings() override { return false; }
 
   int TranslateString(const std::string &setting);
   const std::string& GetString(int setting) const;
@@ -204,8 +206,8 @@ public:
 
   static std::set<CSkinSettingPtr> ParseSettings(const TiXmlElement* rootElement);
 
-  virtual void OnPreInstall();
-  virtual void OnPostInstall(bool update, bool modal);
+  void OnPreInstall() override;
+  void OnPostInstall(bool update, bool modal) override;
 protected:
   /*! \brief Given a resolution, retrieve the corresponding directory name
    \param res RESOLUTION to translate
@@ -243,6 +245,7 @@ protected:
 private:
   std::map<int, CSkinSettingStringPtr> m_strings;
   std::map<int, CSkinSettingBoolPtr> m_bools;
+  std::unique_ptr<CSkinSettingUpdateHandler> m_settingsUpdateHandler;
 };
 
 } /*namespace ADDON*/

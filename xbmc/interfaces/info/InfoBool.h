@@ -35,7 +35,9 @@ class InfoBool
 {
 public:
   InfoBool(const std::string &expression, int context, unsigned int &refreshCounter);
-  virtual ~InfoBool() {};
+  virtual ~InfoBool() = default;
+
+  virtual void Initialize() {};
 
   /*! \brief Get the value of this info bool
    This is called to update (if dirty) and fetch the value of the info bool
@@ -45,10 +47,10 @@ public:
   {
     if (item && m_listItemDependent)
       Update(item);
-    else if (m_refeshCounter != m_parentRefreshCounter)
+    else if (m_refreshCounter != m_parentRefreshCounter || m_refreshCounter == 0)
     {
       Update(NULL);
-      m_refeshCounter = m_parentRefreshCounter;
+      m_refreshCounter = m_parentRefreshCounter;
     }
     return m_value;
   }
@@ -81,10 +83,10 @@ protected:
   bool m_value;                ///< current value
   int m_context;               ///< contextual information to go with the condition
   bool m_listItemDependent;    ///< do not cache if a listitem pointer is given
+  std::string  m_expression;   ///< original expression
 
 private:
-  std::string  m_expression;   ///< original expression
-  unsigned int m_refeshCounter;
+  unsigned int m_refreshCounter;
   unsigned int &m_parentRefreshCounter;
 };
 

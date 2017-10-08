@@ -50,8 +50,7 @@ namespace dbiplus
 #define ERROR_DATABASE    315
 #define ERROR_REORG_SONGS   319
 #define ERROR_REORG_ARTIST   321
-#define ERROR_REORG_GENRE   323
-#define ERROR_REORG_ROLE   324
+#define ERROR_REORG_OTHER   323
 #define ERROR_REORG_PATH   325
 #define ERROR_REORG_ALBUM   327
 #define ERROR_WRITING_CHANGES  329
@@ -96,10 +95,10 @@ class CMusicDatabase : public CDatabase
 
 public:
   CMusicDatabase(void);
-  virtual ~CMusicDatabase(void);
+  ~CMusicDatabase(void) override;
 
-  virtual bool Open();
-  virtual bool CommitTransaction();
+  bool Open() override;
+  bool CommitTransaction() override;
   void EmptyCache();
   void Clean();
   int  Cleanup(bool bShowProgress=true);
@@ -213,12 +212,11 @@ public:
   */
   bool AddAlbum(CAlbum& album);
 
-  /*! \brief Update an album and all its nested entities (artists, songs, infoSongs, etc)
+  /*! \brief Update an album and all its nested entities (artists, songs etc)
    \param album the album to update
-   \param OverrideTagData whether or not to replace the artist and song data, defaults to true.
    \return true or false
    */
-  bool UpdateAlbum(CAlbum& album, bool OverrideTagData = true);
+  bool UpdateAlbum(CAlbum& album);
 
   /*! \brief Add an album to the database
    \param strAlbum the album title
@@ -234,6 +232,7 @@ public:
    \return the id of the album
    */
   int  AddAlbum(const std::string& strAlbum, const std::string& strMusicBrainzAlbumID,
+                const std::string& strReleaseGroupMBID,
                 const std::string& strArtist, const std::string& strArtistSort, 
                 const std::string& strGenre, int year,
                 const std::string& strRecordLabel, const std::string& strType,
@@ -249,6 +248,7 @@ public:
   int  UpdateAlbum(int idAlbum, const CAlbum &album);
   int  UpdateAlbum(int idAlbum,
                    const std::string& strAlbum, const std::string& strMusicBrainzAlbumID,
+                   const std::string& strReleaseGroupMBID,
                    const std::string& strArtist, const std::string& strArtistSort,
                    const std::string& strGenre,
                    const std::string& strMoods, const std::string& strStyles,
@@ -256,10 +256,10 @@ public:
                    const std::string& strImage, const std::string& strLabel,
                    const std::string& strType,
                    float fRating, int iUserrating, int iVotes, int iYear, bool bCompilation,
-                   CAlbum::ReleaseType releaseType);
+                   CAlbum::ReleaseType releaseType,
+                   bool bScrapedMBID);
   bool ClearAlbumLastScrapedTime(int idAlbum);
   bool HasAlbumBeenScraped(int idAlbum);
-  int  AddAlbumInfoSong(int idAlbum, const CSong& song);
 
   /////////////////////////////////////////////////
   // Audiobook
@@ -286,19 +286,20 @@ public:
   /////////////////////////////////////////////////
   bool UpdateArtist(const CArtist& artist);
 
-  int  AddArtist(const std::string& strArtist, const std::string& strMusicBrainzArtistID, const std::string& strSortName);
-  int  AddArtist(const std::string& strArtist, const std::string& strMusicBrainzArtistID);
+  int  AddArtist(const std::string& strArtist, const std::string& strMusicBrainzArtistID, const std::string& strSortName, bool bScrapedMBID = false);
+  int  AddArtist(const std::string& strArtist, const std::string& strMusicBrainzArtistID, bool bScrapedMBID = false);
   bool GetArtist(int idArtist, CArtist& artist, bool fetchAll = true);
   bool GetArtistExists(int idArtist);
   int  UpdateArtist(int idArtist,
                     const std::string& strArtist, const std::string& strSortName,
-                    const std::string& strMusicBrainzArtistID,
+                    const std::string& strMusicBrainzArtistID, bool bScrapedMBID,
                     const std::string& strBorn, const std::string& strFormed,
                     const std::string& strGenres, const std::string& strMoods,
                     const std::string& strStyles, const std::string& strInstruments,
                     const std::string& strBiography, const std::string& strDied,
                     const std::string& strDisbanded, const std::string& strYearsActive,
                     const std::string& strImage, const std::string& strFanart);
+  bool UpdateArtistScrapedMBID(int idArtist, const std::string& strMusicBrainzArtistID);
   bool GetTranslateBlankArtist() { return m_translateBlankArtist; }
   void SetTranslateBlankArtist(bool translate) { m_translateBlankArtist = translate; }
   bool HasArtistBeenScraped(int idArtist);
@@ -419,13 +420,14 @@ public:
   bool GetRandomSong(CFileItem* item, int& idSong, const Filter &filter);
   int GetSongsCount(const Filter &filter = Filter());
   unsigned int GetSongIDs(const Filter &filter, std::vector<std::pair<int,int> > &songIDs);
-  virtual bool GetFilter(CDbUrl &musicUrl, Filter &filter, SortDescription &sorting);
+  bool GetFilter(CDbUrl &musicUrl, Filter &filter, SortDescription &sorting) override;
 
   /////////////////////////////////////////////////
   // Scraper
   /////////////////////////////////////////////////
-  bool SetScraperForPath(const std::string& strPath, const ADDON::ScraperPtr& info);
-  bool GetScraperForPath(const std::string& strPath, ADDON::ScraperPtr& info, const ADDON::TYPE &type);
+  bool SetScraper(int id, const CONTENT_TYPE &content, const ADDON::ScraperPtr scraper);
+  bool SetScraperAll(const std::string& strBaseDir, const ADDON::ScraperPtr scraper);
+  bool GetScraper(int id, const CONTENT_TYPE &content, ADDON::ScraperPtr& scraper);
   
   /*! \brief Check whether a given scraper is in use.
    \param scraperID the scraper to check for.
@@ -540,12 +542,12 @@ protected:
   std::map<std::string, int> m_genreCache;
   std::map<std::string, int> m_pathCache;
   
-  virtual void CreateTables();
-  virtual void CreateAnalytics();
-  virtual int GetMinSchemaVersion() const { return 32; }
-  virtual int GetSchemaVersion() const;
+  void CreateTables() override;
+  void CreateAnalytics() override;
+  int GetMinSchemaVersion() const override { return 32; }
+  int GetSchemaVersion() const override;
 
-  const char *GetBaseDBName() const { return "MyMusic"; };
+  const char *GetBaseDBName() const override { return "MyMusic"; };
 
 private:
   /*! \brief (Re)Create the generic database views for songs and albums
@@ -569,15 +571,15 @@ private:
   void GetFileItemFromDataset(CFileItem* item, const CMusicDbUrl &baseUrl);
   void GetFileItemFromDataset(const dbiplus::sql_record* const record, CFileItem* item, const CMusicDbUrl &baseUrl);
   void GetFileItemFromArtistCredits(VECARTISTCREDITS& artistCredits, CFileItem* item);
-  CSong GetAlbumInfoSongFromDataset(const dbiplus::sql_record* const record, int offset = 0);
   bool CleanupSongs();
   bool CleanupSongsByIds(const std::string &strSongIds);
   bool CleanupPaths();
   bool CleanupAlbums();
   bool CleanupArtists();
   bool CleanupGenres();
+  bool CleanupInfoSettings();
   bool CleanupRoles();
-  virtual void UpdateTables(int version);
+  void UpdateTables(int version) override;
   bool SearchArtists(const std::string& search, CFileItemList &artists);
   bool SearchAlbums(const std::string& search, CFileItemList &albums);
   bool SearchSongs(const std::string& strSearch, CFileItemList &songs);
@@ -627,6 +629,7 @@ private:
     album_idAlbum=0,
     album_strAlbum,
     album_strMusicBrainzAlbumID,
+    album_strReleaseGroupMBID,
     album_strArtists,
     album_strArtistSort,
     album_strGenres,
@@ -642,6 +645,8 @@ private:
     album_iUserrating,
     album_iVotes,
     album_bCompilation,
+    album_bScrapedMBID,
+    album_lastScraped,
     album_iTimesPlayed,
     album_strReleaseType,
     album_dtDateAdded,
@@ -685,17 +690,10 @@ private:
     artist_strYearsActive,
     artist_strImage,
     artist_strFanart,
+    artist_bScrapedMBID,
+    artist_lastScraped,
     artist_dtDateAdded,
     artist_enumCount // end of the enum, do not add past here
   } ArtistFields;
 
-  static enum _AlbumInfoSongFields
-  {
-    albumInfoSong_idAlbumInfoSong=0,
-    albumInfoSong_idAlbumInfo,
-    albumInfoSong_iTrack,
-    albumInfoSong_strTitle,
-    albumInfoSong_iDuration,
-    albumInfoSong_enumCount // end of the enum, do not add past here
-  } AlbumInfoSongFields;
 };

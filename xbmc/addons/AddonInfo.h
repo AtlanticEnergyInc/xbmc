@@ -19,8 +19,9 @@
  *
  */
 
-#include "XBDateTime.h"
 #include "addons/AddonVersion.h"
+
+#include "XBDateTime.h"
 
 #include <map>
 #include <string>
@@ -66,6 +67,7 @@ namespace ADDON
     ADDON_SCRIPT_LIBRARY,
     ADDON_SCRIPT_MODULE,
     ADDON_GAME_CONTROLLER,
+    ADDON_VIDEOCODEC,
 
     /**
      * @brief virtual addon types

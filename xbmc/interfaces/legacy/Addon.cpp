@@ -21,9 +21,11 @@
 #include "Addon.h"
 #include "LanguageHook.h"
 
+#include "ServiceBroker.h"
 #include "addons/AddonManager.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
 #include "guilib/GUIWindowManager.h"
+#include "guilib/LocalizeStrings.h"
 #include "GUIUserMessages.h"
 #include "utils/StringUtils.h"
 
@@ -70,15 +72,15 @@ namespace XBMCAddon
       if (id.empty())
         throw AddonException("No valid addon id could be obtained. None was passed and the script wasn't executed in a normal xbmc manner.");
 
-      if (!ADDON::CAddonMgr::GetInstance().GetAddon(id.c_str(), pAddon))
+      if (!CServiceBroker::GetAddonMgr().GetAddon(id.c_str(), pAddon))
         throw AddonException("Unknown addon id '%s'.", id.c_str());
 
-      CAddonMgr::GetInstance().AddToUpdateableAddons(pAddon);
+      CServiceBroker::GetAddonMgr().AddToUpdateableAddons(pAddon);
     }
 
     Addon::~Addon()
     {
-      CAddonMgr::GetInstance().RemoveFromUpdateableAddons(pAddon);
+      CServiceBroker::GetAddonMgr().RemoveFromUpdateableAddons(pAddon);
     }
 
     String Addon::getLocalizedString(int id)

@@ -43,12 +43,19 @@
   #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
     #define ATTRIBUTE_PACKED __attribute__ ((packed))
     #define PRAGMA_PACK 0
+  #if __GNUC__ >= 4
+    #define ATTRIBUTE_HIDDEN __attribute__ ((visibility ("hidden")))
+  #endif
   #endif
 #endif
 
 #if !defined(ATTRIBUTE_PACKED)
   #define ATTRIBUTE_PACKED
   #define PRAGMA_PACK 1
+#endif
+
+#if !defined(ATTRIBUTE_HIDDEN)
+  #define ATTRIBUTE_HIDDEN
 #endif
 
 #include "versions.h"
@@ -81,9 +88,6 @@ typedef enum ADDON_STATUS
 
   ///
   ADDON_STATUS_UNKNOWN,
-
-  ///
-  ADDON_STATUS_NEED_SAVEDSETTINGS,
 
   /// permanent failure, like failing to resolve methods
   ADDON_STATUS_PERMANENT_FAILURE,
@@ -156,6 +160,7 @@ typedef struct AddonToKodiFuncTable_Addon
 
   // Function addresses used for callbacks from addon to Kodi
   void (*free_string)(void* kodiBase, char* str);
+  void (*free_string_array)(void* kodiBase, char** arr, int numElements);
   char* (*get_addon_path)(void* kodiBase);
   char* (*get_base_user_path)(void* kodiBase);
   void (*addon_log_msg)(void* kodiBase, const int loglevel, const char *msg);
@@ -237,7 +242,7 @@ namespace addon {
 class IAddonInstance
 {
 public:
-  IAddonInstance(ADDON_TYPE type) : m_type(type) { }
+  explicit IAddonInstance(ADDON_TYPE type) : m_type(type) { }
   virtual ~IAddonInstance() = default;
 
   virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
@@ -257,7 +262,7 @@ namespace kodi {
 class CSettingValue
 {
 public:
-  CSettingValue(const void *settingValue) : m_settingValue(settingValue) {}
+  explicit CSettingValue(const void *settingValue) : m_settingValue(settingValue) {}
 
   bool empty() const { return (m_settingValue == nullptr) ? true : false; }
   std::string GetString() const { return (char*)m_settingValue; }
@@ -276,7 +281,7 @@ private:
 namespace kodi {
 namespace addon {
 /// Add-on main instance class.
-class CAddonBase
+class ATTRIBUTE_HIDDEN CAddonBase
 {
 public:
   CAddonBase()
@@ -588,8 +593,6 @@ inline std::string TranslateAddonStatus(ADDON_STATUS status)
       return "Need Settings";
     case ADDON_STATUS_UNKNOWN:
       return "Unknown error";
-    case ADDON_STATUS_NEED_SAVEDSETTINGS:
-      return "Need saved settings";
     case ADDON_STATUS_PERMANENT_FAILURE:
       return "Permanent failure";
     case ADDON_STATUS_NOT_IMPLEMENTED:

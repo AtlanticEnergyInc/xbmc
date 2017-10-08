@@ -19,17 +19,17 @@
  *
  */
 
+#include <map>
 #include <vector>
 
 #include "dbwrappers/Database.h"
-#include "utils/log.h"
+#include "threads/CriticalSection.h"
 
-#include "pvr/PVRManager.h"
+#include "pvr/PVRTypes.h"
 
 namespace PVR
 {
   class CPVRChannelGroup;
-  class CPVRChannelGroupInternal;
   class CPVRChannel;
   class CPVRChannelGroups;
 
@@ -42,7 +42,7 @@ namespace PVR
      * @brief Create a new instance of the PVR database.
      */
     CPVRDatabase(void) = default;
-    virtual ~CPVRDatabase(void) = default;
+    ~CPVRDatabase(void) override = default;
 
     /*!
      * @brief Open the database.
@@ -51,10 +51,15 @@ namespace PVR
     bool Open() override;
 
     /*!
+     * @brief Close the database.
+     */
+    void Close() override;
+
+    /*!
      * @brief Get the minimal database version that is required to operate correctly.
      * @return The minimal database version.
      */
-    int GetSchemaVersion() const override { return 30; }
+    int GetSchemaVersion() const override { return 31; }
 
     /*!
      * @brief Get the default sqlite database filename.
@@ -74,9 +79,10 @@ namespace PVR
     /*!
      * @brief Add or update a channel entry in the database
      * @param channel The channel to persist.
+     * @param bCommit queue only or queue and commit
      * @return True when persisted or queued, false otherwise.
      */
-    bool Persist(CPVRChannel &channel);
+    bool Persist(CPVRChannel &channel, bool bCommit);
 
     /*!
      * @brief Remove a channel entry from the database
@@ -88,9 +94,10 @@ namespace PVR
     /*!
      * @brief Get the list of channels from the database
      * @param results The channel group to store the results in.
+     * @param bCompressDB Compress the DB after getting the list
      * @return The amount of channels that were added.
      */
-    int Get(CPVRChannelGroupInternal &results);
+    int Get(CPVRChannelGroup &results, bool bCompressDB);
 
     //@}
 
@@ -120,9 +127,10 @@ namespace PVR
     /*!
      * @brief Add the group members to a group.
      * @param group The group to get the channels for.
+     * @param allChannels All channels contained in the "all channels group" matching param group's 'IsRadio' property.
      * @return The amount of channels that were added.
      */
-    int Get(CPVRChannelGroup &group);
+    int Get(CPVRChannelGroup &group, const std::map<int, CPVRChannelPtr> &allChannels);
 
     /*!
      * @brief Add or update a channel group entry in the database.
@@ -141,23 +149,6 @@ namespace PVR
 
     /*! @name Client methods */
     //@{
-
-    /*!
-     * @brief Sets the 'was playing on last app quit' flag for a channel.
-     * @param channel the channel
-     * @param bSet True to set the flag, false to reset the flag
-     * @return True if the operation was successful, false otherwise
-     */
-    bool SetWasPlayingOnLastQuit(const CPVRChannel &channel, bool bSet);
-
-    /*!
-     * @brief Sets the 'was playing on last app quit' flag for a channel.
-     * @param channel the channel
-     * @param bSet True to set the flag, false to reset the flag
-     * @param bWasPlaying on return contains the previous value of the flag
-     * @return True if the operation was successful, false otherwise
-     */
-    bool SetWasPlayingOnLastQuit(const CPVRChannel &channel, bool bSet, bool& bWasPlaying);
 
     /*!
     * @brief Updates the last watched timestamp for the channel
@@ -197,5 +188,7 @@ namespace PVR
     bool PersistChannels(CPVRChannelGroup &group);
 
     bool RemoveChannelsFromGroup(const CPVRChannelGroup &group);
+
+    CCriticalSection m_critSection;
   };
 }

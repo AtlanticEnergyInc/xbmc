@@ -110,7 +110,7 @@ namespace gui
     ///
     ///
     ///
-    virtual ~CWindow()
+    ~CWindow() override
     {
       if (m_controlHandle)
         m_interface->kodi_gui->window->destroy(m_interface->kodiBase, m_controlHandle);
@@ -127,6 +127,10 @@ namespace gui
     ///
     /// @note If your Add-On ends this window will be closed to. To show it forever,
     /// make a loop at the end of your Add-On or use doModal() instead.
+    ///
+    /// @warning If used must be the class be global present until Kodi becomes
+    /// closed. The creation can be done after before "Show" becomes called, but
+    /// not delete class after them.
     ///
     /// @return                         Return true if call and show is successed,
     ///                                 if false was something failed to get needed

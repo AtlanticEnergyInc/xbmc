@@ -24,23 +24,92 @@
 
 #include "Application.h"
 #include "ServiceBroker.h"
-#include "dialogs/GUIDialogExtendedProgressBar.h"
-#include "Epg.h"
-#include "EpgSearchFilter.h"
-#include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
-#include "pvr/channels/PVRChannelGroupsContainer.h"
-#include "pvr/PVRManager.h"
-#include "pvr/recordings/PVRRecordings.h"
-#include "pvr/timers/PVRTimerInfoTag.h"
 #include "settings/AdvancedSettings.h"
-#include "settings/lib/Setting.h"
 #include "settings/Settings.h"
+#include "settings/lib/Setting.h"
 #include "threads/SingleLock.h"
+#include "threads/SystemClock.h"
 #include "utils/log.h"
 
+#include "pvr/PVRManager.h"
+#include "pvr/PVRGUIProgressHandler.h"
+#include "pvr/channels/PVRChannelGroupsContainer.h"
+#include "pvr/epg/Epg.h"
+#include "pvr/epg/EpgSearchFilter.h"
+#include "pvr/recordings/PVRRecordings.h"
+#include "pvr/timers/PVRTimerInfoTag.h"
 
-using namespace PVR;
+namespace PVR
+{
+
+class CEpgUpdateRequest
+{
+public:
+  CEpgUpdateRequest() : CEpgUpdateRequest(-1, PVR_CHANNEL_INVALID_UID) {}
+  CEpgUpdateRequest(int iClientID, unsigned int iUniqueChannelID) : m_iClientID(iClientID), m_iUniqueChannelID(iUniqueChannelID) {}
+
+  void Deliver();
+
+private:
+  int m_iClientID;
+  unsigned int m_iUniqueChannelID;
+};
+
+void CEpgUpdateRequest::Deliver()
+{
+  const CPVRChannelPtr channel = CServiceBroker::GetPVRManager().ChannelGroups()->GetByUniqueID(m_iUniqueChannelID, m_iClientID);
+  if (!channel)
+  {
+    CLog::Log(LOGERROR, "PVR - %s - invalid channel (%d)! Unable to do the epg update!", __FUNCTION__, m_iUniqueChannelID);
+    return;
+  }
+
+  const CPVREpgPtr epg = channel->GetEPG();
+  if (!epg)
+  {
+    CLog::Log(LOGERROR, "PVR - %s - channel '%s' does not have an EPG! Unable to do the epg update!", __FUNCTION__, channel->ChannelName().c_str());
+    return;
+  }
+
+  epg->ForceUpdate();
+}
+
+class CEpgTagStateChange
+{
+public:
+  CEpgTagStateChange() : m_state(EPG_EVENT_CREATED) {}
+  CEpgTagStateChange(const CPVREpgInfoTagPtr tag, EPG_EVENT_STATE eNewState) : m_epgtag(tag), m_state(eNewState) {}
+
+  void Deliver();
+
+private:
+  CPVREpgInfoTagPtr m_epgtag;
+  EPG_EVENT_STATE m_state;
+};
+
+void CEpgTagStateChange::Deliver()
+{
+  const CPVRChannelPtr channel = CServiceBroker::GetPVRManager().ChannelGroups()->GetByUniqueID(m_epgtag->UniqueChannelID(), m_epgtag->ClientID());
+  if (!channel)
+  {
+    CLog::Log(LOGERROR, "PVR - %s - invalid channel (%d)! Unable to deliver state change for tag '%d'!",
+              __FUNCTION__, m_epgtag->UniqueChannelID(), m_epgtag->UniqueBroadcastID());
+    return;
+  }
+
+  const CPVREpgPtr epg = channel->GetEPG();
+  if (!epg)
+  {
+    CLog::Log(LOGERROR, "PVR - %s - channel '%s' does not have an EPG! Unable to deliver state change for tag '%d'!",
+              __FUNCTION__, channel->ChannelName().c_str(), m_epgtag->UniqueBroadcastID());
+    return;
+  }
+
+  // update
+  if (!epg->UpdateEntry(m_epgtag, m_state, false))
+    CLog::Log(LOGERROR, "PVR - %s - update failed for epgtag change for channel '%s'", __FUNCTION__, channel->ChannelName().c_str());
+}
 
 CPVREpgContainer::CPVREpgContainer(void) :
   CThread("EPGUpdater"),
@@ -48,10 +117,11 @@ CPVREpgContainer::CPVREpgContainer(void) :
   m_settings({
     CSettings::SETTING_EPG_IGNOREDBFORCLIENT,
     CSettings::SETTING_EPG_EPGUPDATE,
-    CSettings::SETTING_EPG_DAYSTODISPLAY
+    CSettings::SETTING_EPG_FUTURE_DAYSTODISPLAY,
+    CSettings::SETTING_EPG_PAST_DAYSTODISPLAY,
+    CSettings::SETTING_EPG_PREVENTUPDATESWHILEPLAYINGTV
   })
 {
-  m_progressHandle = NULL;
   m_bStop = true;
   m_bIsUpdating = false;
   m_bIsInitialising = true;
@@ -138,9 +208,9 @@ class CPVREpgContainerStartJob : public CJob
 {
 public:
   CPVREpgContainerStartJob() = default;
-  virtual ~CPVREpgContainerStartJob(void) = default;
+  ~CPVREpgContainerStartJob(void) override = default;
 
-  bool DoWork(void)
+  bool DoWork(void) override
   {
     CServiceBroker::GetPVRManager().EpgContainer().Start(false);
     return true;
@@ -240,21 +310,9 @@ void CPVREpgContainer::LoadFromDB(void)
   unsigned int iCounter(0);
   if (m_database.IsOpen())
   {
-    {
-      //! @bug
-      //! unlock m_critSection before calling ShowProgressDialog() -
-      //! this is not legal, but works around a deadlock bug (because
-      //! ShowProgressDialog() calls functions which lock
-      //! g_graphicsContext); note that ShowProgressDialog() is
-      //! sometimes called with m_critSection locked and sometimes
-      //! without; this is a major bug that must be addressed
-      //! eventually
-      CSingleExit exit(m_critSection);
-      ShowProgressDialog(false);
-    }
+    CPVRGUIProgressHandler* progressHandler = new CPVRGUIProgressHandler(g_localizeStrings.Get(19250)); // Loading guide from database
 
-    const CDateTime cleanupTime(CDateTime::GetUTCDateTime() -
-      CDateTimeSpan(0, g_advancedSettings.m_iEpgLingerTime / 60, g_advancedSettings.m_iEpgLingerTime % 60, 0));
+    const CDateTime cleanupTime(CDateTime::GetUTCDateTime() - CDateTimeSpan(GetPastDaysToDisplay(), 0, 0, 0));
     m_database.DeleteEpgEntries(cleanupTime);
     m_database.Get(*this);
 
@@ -262,13 +320,15 @@ void CPVREpgContainer::LoadFromDB(void)
     {
       if (m_bStop)
         break;
-      UpdateProgressDialog(++iCounter, m_epgs.size(), epgEntry.second->Name());
+
+      progressHandler->UpdateProgress(epgEntry.second->Name(), ++iCounter, m_epgs.size());
+
       lock.Leave();
       epgEntry.second->Load();
       lock.Enter();
     }
 
-    CloseProgressDialog();
+    progressHandler->DestroyProgress();
   }
 
   m_bLoaded = bLoaded;
@@ -316,31 +376,55 @@ void CPVREpgContainer::Process(void)
       RemoveOldEntries();
 
     /* check for pending manual EPG updates */
+
     while (!m_bStop)
     {
-      SUpdateRequest request;
+      CEpgUpdateRequest request;
       {
         CSingleLock lock(m_updateRequestsLock);
         if (m_updateRequests.empty())
           break;
+
         request = m_updateRequests.front();
         m_updateRequests.pop_front();
       }
 
-      // get the channel
-      CPVRChannelPtr channel = CServiceBroker::GetPVRManager().ChannelGroups()->GetByUniqueID(request.channelID, request.clientID);
-      CPVREpgPtr epg;
-
-      // get the EPG for the channel
-      if (!channel || !(epg = channel->GetEPG()))
-      {
-        CLog::Log(LOGERROR, "PVR - %s - invalid channel or channel doesn't have an EPG", __FUNCTION__);
-        continue;
-      }
-
-      // force an update
-      epg->ForceUpdate();
+      // do the update
+      request.Deliver();
     }
+
+    /* check for pending EPG tag changes */
+
+    // during Kodi startup, addons may push updates very early, even before EPGs are ready to use.
+    if (!m_bStop && CServiceBroker::GetPVRManager().EpgsCreated())
+    {
+      unsigned int iProcessed = 0;
+      XbmcThreads::EndTime processTimeslice(1000); // max 1 sec per cycle, regardless of how many events are in the queue
+
+      while (!m_bStop)
+      {
+        CEpgTagStateChange change;
+        {
+          CSingleLock lock(m_epgTagChangesLock);
+          if (processTimeslice.IsTimePast() || m_epgTagChanges.empty())
+          {
+            if (iProcessed > 0)
+              CLog::Log(LOGDEBUG, "PVR - %s - processed %ld queued epg event changes.", __FUNCTION__, iProcessed);
+
+            break;
+          }
+
+          change = m_epgTagChanges.front();
+          m_epgTagChanges.pop_front();
+        }
+
+        iProcessed++;
+
+        // deliver the updated tag to the respective epg
+        change.Deliver();
+      }
+    }
+
     if (!m_bStop)
     {
       {
@@ -419,7 +503,7 @@ CPVREpgInfoTagPtr CPVREpgContainer::GetTagById(const CPVRChannelPtr &channel, un
 
 std::vector<CPVREpgInfoTagPtr> CPVREpgContainer::GetEpgTagsForTimer(const CPVRTimerInfoTagPtr &timer) const
 {
-  CPVRChannelPtr channel(timer->ChannelTag());
+  CPVRChannelPtr channel(timer->Channel());
 
   if (!channel)
     channel = timer->UpdateChannel();
@@ -498,8 +582,7 @@ CPVREpgPtr CPVREpgContainer::CreateChannelEpg(const CPVRChannelPtr &channel)
 
 bool CPVREpgContainer::RemoveOldEntries(void)
 {
-  const CDateTime cleanupTime(CDateTime::GetUTCDateTime() -
-    CDateTimeSpan(0, g_advancedSettings.m_iEpgLingerTime / 60, g_advancedSettings.m_iEpgLingerTime % 60, 0));
+  const CDateTime cleanupTime(CDateTime::GetUTCDateTime() - CDateTimeSpan(GetPastDaysToDisplay(), 0, 0, 0));
 
   /* call Cleanup() on all known EPG tables */
   for (const auto &epgEntry : m_epgs)
@@ -536,37 +619,6 @@ bool CPVREpgContainer::DeleteEpg(const CPVREpg &epg, bool bDeleteFromDatabase /*
   return true;
 }
 
-void CPVREpgContainer::CloseProgressDialog(void)
-{
-  if (m_progressHandle)
-  {
-    m_progressHandle->MarkFinished();
-    m_progressHandle = NULL;
-  }
-}
-
-void CPVREpgContainer::ShowProgressDialog(bool bUpdating /* = true */)
-{
-  if (!m_progressHandle)
-  {
-    CGUIDialogExtendedProgressBar *progressDialog = g_windowManager.GetWindow<CGUIDialogExtendedProgressBar>(WINDOW_DIALOG_EXT_PROGRESS);
-    if (progressDialog)
-      m_progressHandle = progressDialog->GetHandle(bUpdating ? g_localizeStrings.Get(19004) : g_localizeStrings.Get(19250));
-  }
-}
-
-void CPVREpgContainer::UpdateProgressDialog(int iCurrent, int iMax, const std::string &strText)
-{
-  if (!m_progressHandle)
-    ShowProgressDialog();
-
-  if (m_progressHandle)
-  {
-    m_progressHandle->SetProgress(iCurrent, iMax);
-    m_progressHandle->SetText(strText);
-  }
-}
-
 bool CPVREpgContainer::IgnoreDB() const
 {
   return m_settings.GetBoolValue(CSettings::SETTING_EPG_IGNOREDBFORCLIENT);
@@ -579,7 +631,7 @@ bool CPVREpgContainer::InterruptUpdate(void) const
   bReturn = g_application.m_bStop || m_bStop || m_bPreventUpdates;
 
   return bReturn ||
-    (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_EPG_PREVENTUPDATESWHILEPLAYINGTV) &&
+    (m_settings.GetBoolValue(CSettings::SETTING_EPG_PREVENTUPDATESWHILEPLAYINGTV) &&
      g_application.m_pPlayer && g_application.m_pPlayer->IsPlaying());
 }
 
@@ -609,9 +661,9 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
   /* set start and end time */
   time_t start;
   time_t end;
-  CDateTime::GetCurrentDateTime().GetAsUTCDateTime().GetAsTime(start);
-  end = start + m_settings.GetIntValue(CSettings::SETTING_EPG_DAYSTODISPLAY) * 24 * 60 * 60;
-  start -= g_advancedSettings.m_iEpgLingerTime * 60;
+  CDateTime::GetUTCDateTime().GetAsTime(start);
+  end = start + GetFutureDaysToDisplay() * 24 * 60 * 60;
+  start -= GetPastDaysToDisplay() * 24 * 60 * 60;
   bShowProgress = g_advancedSettings.m_bEpgDisplayUpdatePopup && (m_bIsInitialising || g_advancedSettings.m_bEpgDisplayIncrementalUpdatePopup);
 
   {
@@ -621,9 +673,6 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
     m_bIsUpdating = true;
     pendingUpdates = m_pendingUpdates;
   }
-
-  if (bShowProgress && !bOnlyPending)
-    ShowProgressDialog();
 
   if (!IgnoreDB() && !m_database.IsOpen())
   {
@@ -635,13 +684,14 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
       m_updateEvent.Set();
     }
 
-    if (bShowProgress && !bOnlyPending)
-      CloseProgressDialog();
-
     return false;
   }
 
   std::vector<CPVREpgPtr> invalidTables;
+
+  CPVRGUIProgressHandler* progressHandler = nullptr;
+  if (bShowProgress && !bOnlyPending)
+    progressHandler = new CPVRGUIProgressHandler(g_localizeStrings.Get(19004)); // Importing guide from clients
 
   /* load or update all EPG tables */
   unsigned int iCounter(0);
@@ -658,7 +708,7 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
       continue;
 
     if (bShowProgress && !bOnlyPending)
-      UpdateProgressDialog(++iCounter, m_epgs.size(), epg->Name());
+      progressHandler->UpdateProgress(epg->Name(), ++iCounter, m_epgs.size());
 
     // we currently only support update via pvr add-ons. skip update when the pvr manager isn't started
     if (!CServiceBroker::GetPVRManager().IsStarted())
@@ -679,6 +729,9 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
       invalidTables.push_back(epg);
   }
 
+  if (bShowProgress && !bOnlyPending)
+    progressHandler->DestroyProgress();
+
   for (auto it = invalidTables.begin(); it != invalidTables.end(); ++it)
     DeleteEpg(**it, true);
 
@@ -697,9 +750,6 @@ bool CPVREpgContainer::UpdateEPG(bool bOnlyPending /* = false */)
     if (m_pendingUpdates == pendingUpdates)
       m_pendingUpdates = 0;
   }
-
-  if (bShowProgress && !bOnlyPending)
-    CloseProgressDialog();
 
   /* notify observers */
   if (iUpdatedTables > 0)
@@ -822,12 +872,26 @@ void CPVREpgContainer::SetHasPendingUpdates(bool bHasPendingUpdates /* = true */
     m_pendingUpdates = 0;
 }
 
-void CPVREpgContainer::UpdateRequest(int clientID, unsigned int channelID)
+void CPVREpgContainer::UpdateRequest(int iClientID, unsigned int iUniqueChannelID)
 {
   CSingleLock lock(m_updateRequestsLock);
-  SUpdateRequest request;
-  request.clientID = clientID;
-  request.channelID = channelID;
-  m_updateRequests.push_back(request);
+  m_updateRequests.emplace_back(CEpgUpdateRequest(iClientID, iUniqueChannelID));
 }
 
+void CPVREpgContainer::UpdateFromClient(const CPVREpgInfoTagPtr tag, EPG_EVENT_STATE eNewState)
+{
+  CSingleLock lock(m_epgTagChangesLock);
+  m_epgTagChanges.emplace_back(CEpgTagStateChange(tag, eNewState));
+}
+
+int CPVREpgContainer::GetPastDaysToDisplay() const
+{
+  return m_settings.GetIntValue(CSettings::SETTING_EPG_PAST_DAYSTODISPLAY);
+}
+
+int CPVREpgContainer::GetFutureDaysToDisplay() const
+{
+  return m_settings.GetIntValue(CSettings::SETTING_EPG_FUTURE_DAYSTODISPLAY);
+}
+
+} // namespace PVR

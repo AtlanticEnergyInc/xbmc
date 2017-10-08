@@ -18,7 +18,7 @@
  *
  */
 
-#if defined(TARGET_WINDOWS) || defined(TARGET_WIN10)
+#if defined(TARGET_WINDOWS)
 #  if !defined(WIN32_LEAN_AND_MEAN)
 #    define WIN32_LEAN_AND_MEAN
 #  endif
@@ -66,10 +66,10 @@ protected:
       baseUrl(StringUtils::Format("http://" WEBSERVER_HOST ":%d", WEBSERVER_PORT)),
       sourcePath(XBMC_REF_FILE_PATH("xbmc/network/test/data/webserver/"))
   { }
-  virtual ~TestWebServer() { }
+  ~TestWebServer() override = default;
 
 protected:
-  virtual void SetUp()
+  void SetUp() override
   {
     SetupMediaSources();
 
@@ -78,7 +78,7 @@ protected:
     webserver.RegisterRequestHandler(&m_vfsHandler);
   }
 
-  virtual void TearDown()
+  void TearDown() override
   {
     if (webserver.IsStarted())
       webserver.Stop();
@@ -253,7 +253,7 @@ protected:
       // check the content
       CHttpRange firstRange;
       ASSERT_TRUE(ranges.GetFirst(firstRange));
-      expectedContent = expectedContent.substr(firstRange.GetFirstPosition(), firstRange.GetLength());
+      expectedContent = expectedContent.substr(static_cast<size_t>(firstRange.GetFirstPosition()), static_cast<size_t>(firstRange.GetLength()));
       EXPECT_STREQ(expectedContent.c_str(), result.c_str());
 
       // and Content-Length
@@ -337,7 +337,7 @@ protected:
 
       // make sure the length of the content matches the one of the expected range
       EXPECT_EQ(range.GetLength(), data.size());
-      EXPECT_STREQ(expectedContent.substr(range.GetFirstPosition(), range.GetLength()).c_str(), data.c_str());
+      EXPECT_STREQ(expectedContent.substr(static_cast<size_t>(range.GetFirstPosition()), static_cast<size_t>(range.GetLength())).c_str(), data.c_str());
     }
   }
 

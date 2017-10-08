@@ -39,7 +39,7 @@ class CDVDClock;
 class CAudioSinkAE : IAEClockCallback
 {
 public:
-  CAudioSinkAE(CDVDClock *clock);
+  explicit CAudioSinkAE(CDVDClock *clock);
   ~CAudioSinkAE();
 
   void SetVolume(float fVolume);
@@ -52,7 +52,8 @@ public:
   unsigned int AddPackets(const DVDAudioFrame &audioframe);
   double GetPlayingPts();
   double GetCacheTime();
-  double GetCacheTotal(); // returns total amount the audio device can buffer
+  double GetCacheTotal(); // returns total time a stream can buffer
+  double GetMaxDelay(); // returns total time of audio in AE for the stream
   double GetDelay(); // returns the time it takes to play a packet if we add one at this time
   double GetSyncError();
   void SetSyncErrorCorrection(double correction);
@@ -67,8 +68,8 @@ public:
   void Drain();
   void AbortAddPackets();
 
-  double GetClock();
-  double GetClockSpeed();
+  double GetClock() override;
+  double GetClockSpeed() override;
 
   CAEStreamInfo::DataType GetPassthroughStreamType(AVCodecID codecId, int samplerate);
 

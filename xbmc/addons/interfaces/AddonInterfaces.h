@@ -40,7 +40,7 @@ namespace ADDON
   class CAddonInterfaces
   {
   public:
-    CAddonInterfaces(CAddon* addon);
+    explicit CAddonInterfaces(CAddon* addon);
     ~CAddonInterfaces();
 
     AddonCB* GetCallbacks()        { return m_callbacks; }
@@ -62,14 +62,6 @@ namespace ADDON
     static void         PVRLib_UnRegisterMe            (void* addonData, void* cbTable);
     /*\_________________________________________________________________________
     \*/
-    static void*        INPUTSTREAMLib_RegisterMe      (void *addonData);
-    static void         INPUTSTREAMLib_UnRegisterMe    (void *addonData, void* cbTable);
-    /*\_________________________________________________________________________
-    \*/
-    static void*        PeripheralLib_RegisterMe       (void *addonData);
-    static void         PeripheralLib_UnRegisterMe     (void *addonData, void* cbTable);
-    /*\_________________________________________________________________________
-    \*/
     static void*        GameLib_RegisterMe             (void *addonData);
     static void         GameLib_UnRegisterMe           (void *addonData, void* cbTable);
     /*
@@ -78,6 +70,8 @@ namespace ADDON
     static void OnApplicationMessage(KODI::MESSAGING::ThreadMessage* pMsg);
 
   private:
+    CAddonInterfaces(const CAddonInterfaces&) = delete;
+    CAddonInterfaces& operator=(const CAddonInterfaces&) = delete;
     AddonCB*  m_callbacks;
     CAddon*   m_addon;
 

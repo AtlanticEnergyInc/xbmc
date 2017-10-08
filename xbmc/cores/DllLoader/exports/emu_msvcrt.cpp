@@ -80,7 +80,7 @@
 #include "utils/Environment.h"
 #include "utils/StringUtils.h"
 
-#if defined(TARGET_WINDOWS) || defined(TARGET_WIN10)
+#if defined(TARGET_WINDOWS)
 #include "platform/win32/CharsetConverter.h"
 #endif
 
@@ -101,9 +101,7 @@ struct SDirData
 #define MAX_OPEN_DIRS 10
 static SDirData vecDirsOpen[MAX_OPEN_DIRS];
 bool bVecDirsInited = false;
-#ifdef HAS_VIDEO_PLAYBACK
 extern void update_cache_dialog(const char* tmp);
-#endif
 
 #define EMU_MAX_ENVIRONMENT_ITEMS 100
 static char *dll__environ_imp[EMU_MAX_ENVIRONMENT_ITEMS + 1];
@@ -482,7 +480,7 @@ extern "C"
       int nmode = convert_fmode(mode);
       if( (o->mode & nmode) != nmode)
         CLog::Log(LOGWARNING, "dll_fdopen - mode 0x%x differs from fd mode 0x%x", nmode, o->mode);
-      return &o->file_emu;
+      return reinterpret_cast<FILE*>(o);
     }
     else if (!IS_STD_DESCRIPTOR(fd))
     {
@@ -545,7 +543,8 @@ extern "C"
         return -1;
       }
       object->mode = iMode;
-      return g_emuFileWrapper.GetDescriptorByStream(&object->file_emu);
+      FILE* f = reinterpret_cast<FILE*>(object);
+      return g_emuFileWrapper.GetDescriptorByStream(f);
     }
     delete pFile;
     return -1;
@@ -1027,7 +1026,7 @@ extern "C"
       return readdir(dirp); // local dir
 
     // dirp is actually a SDirData*
-    SDirData* dirData = (SDirData*)dirp;
+    SDirData* dirData = reinterpret_cast<SDirData*>(dirp);
     if (dirData->last_entry)
       free(dirData->last_entry);
     struct dirent *entry = NULL;
@@ -1065,7 +1064,7 @@ extern "C"
     if (!emulated)
       return closedir(dirp);
 
-    SDirData* dirData = (SDirData*)dirp;
+    SDirData* dirData = reinterpret_cast<SDirData*>(dirp);
     dirData->items.Clear();
     if (dirData->last_entry)
     {
@@ -1092,7 +1091,7 @@ extern "C"
       return;
     }
 
-    SDirData* dirData = (SDirData*)dirp;
+    SDirData* dirData = reinterpret_cast<SDirData*>(dirp);
     if (dirData->last_entry)
     {
       dirData->last_entry = NULL;

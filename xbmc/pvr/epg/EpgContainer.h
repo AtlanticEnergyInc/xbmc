@@ -27,20 +27,15 @@
 #include "utils/Observer.h"
 
 #include "pvr/PVRSettings.h"
-
-#include "Epg.h"
-#include "EpgDatabase.h"
+#include "pvr/epg/Epg.h"
+#include "pvr/epg/EpgDatabase.h"
 
 class CFileItemList;
-class CGUIDialogProgressBarHandle;
 
 namespace PVR
 {
-  struct SUpdateRequest
-  {
-    int clientID;
-    unsigned int channelID;
-  };
+  class CEpgUpdateRequest;
+  class CEpgTagStateChange;
 
   class CPVREpgContainer : public Observer, public Observable, private CThread
   {
@@ -55,7 +50,7 @@ namespace PVR
     /*!
      * @brief Destroy this instance.
      */
-    virtual ~CPVREpgContainer(void);
+    ~CPVREpgContainer(void) override;
 
     /*!
      * @brief Get a pointer to the database instance.
@@ -169,25 +164,6 @@ namespace PVR
     unsigned int NextEpgId(void);
 
     /*!
-     * @brief Close the progress bar if it's visible.
-     */
-    void CloseProgressDialog(void);
-
-    /*!
-     * @brief Show the progress bar
-     * @param bUpdating True if updating epg entries, false if just loading them from db
-     */
-    void ShowProgressDialog(bool bUpdating = true);
-
-    /*!
-     * @brief Update the progress bar.
-     * @param iCurrent The current position.
-     * @param iMax The maximum position.
-     * @param strText The text to display.
-     */
-    void UpdateProgressDialog(int iCurrent, int iMax, const std::string &strText);
-
-    /*!
      * @return True to not to store EPG entries in the database.
      */
     bool IgnoreDB() const;
@@ -217,9 +193,30 @@ namespace PVR
     bool PersistAll(void);
 
     /*!
-     * @brief client can trigger an update request for a channel
+     * @brief A client triggered an epg update request for a channel
+     * @param iClientID The id of the client which triggered the update request
+     * @param iUniqueChannelID The uid of the channel for which the epg shall be updated
      */
-    void UpdateRequest(int clientID, unsigned int channelID);
+    void UpdateRequest(int iClientID, unsigned int iUniqueChannelID);
+
+    /*!
+     * @brief A client announced an updated epg tag for a channel
+     * @param tag The epg tag containing the updated data
+     * @param eNewState The kind of change (CREATED, UPDATED, DELETED)
+     */
+    void UpdateFromClient(const CPVREpgInfoTagPtr tag, EPG_EVENT_STATE eNewState);
+
+    /*!
+     * @brief Get the number of past days to show in the guide and to import from backends.
+     * @return the number of past epg days.
+     */
+    int GetPastDaysToDisplay() const;
+
+    /*!
+     * @brief Get the number of future days to show in the guide and to import from backends.
+     * @return the number of future epg days.
+     */
+    int GetFutureDaysToDisplay() const;
 
   private:
     /*!
@@ -275,12 +272,14 @@ namespace PVR
     EPGMAP       m_epgs;                   /*!< the EPGs in this container */
     //@}
 
-    CGUIDialogProgressBarHandle *  m_progressHandle; /*!< the progress dialog that is visible when updating the first time */
     CCriticalSection               m_critSection;    /*!< a critical section for changes to this container */
     CEvent                         m_updateEvent;    /*!< trigger when an update finishes */
 
-    std::list<SUpdateRequest> m_updateRequests; /*!< list of update requests triggered by addon */
-    CCriticalSection m_updateRequestsLock;      /*!< protect update requests */
+    std::list<CEpgUpdateRequest> m_updateRequests; /*!< list of update requests triggered by addon */
+    CCriticalSection m_updateRequestsLock;         /*!< protect update requests */
+
+    std::list<CEpgTagStateChange> m_epgTagChanges; /*!< list of updated epg tags announced by addon */
+    CCriticalSection m_epgTagChangesLock;          /*!< protect changed epg tags list */
 
     bool m_bUpdateNotificationPending; /*!< true while an epg updated notification to observers is pending. */
     CPVRSettings m_settings;

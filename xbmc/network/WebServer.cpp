@@ -113,7 +113,7 @@ static MHD_Response* create_response(size_t size, void* data, int free, int copy
 #endif
 }
 
-int CWebServer::AskForAuthentication(HTTPRequest request) const
+int CWebServer::AskForAuthentication(const HTTPRequest& request) const
 {
   struct MHD_Response *response = create_response(0, nullptr, MHD_NO, MHD_NO);
   if (!response)
@@ -138,7 +138,7 @@ int CWebServer::AskForAuthentication(HTTPRequest request) const
   return ret;
 }
 
-bool CWebServer::IsAuthenticated(HTTPRequest request) const
+bool CWebServer::IsAuthenticated(const HTTPRequest& request) const
 {
   CSingleLock lock(m_critSection);
 
@@ -197,7 +197,7 @@ int CWebServer::AnswerToConnection(void *cls, struct MHD_Connection *connection,
   return webServer->HandlePartialRequest(connection, connectionHandler, request, upload_data, upload_data_size, con_cls);
 }
 
-int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, ConnectionHandler* connectionHandler, HTTPRequest request, const char *upload_data, size_t *upload_data_size, void **con_cls)
+int CWebServer::HandlePartialRequest(struct MHD_Connection *connection, ConnectionHandler* connectionHandler, const HTTPRequest& request, const char *upload_data, size_t *upload_data_size, void **con_cls)
 {
   std::unique_ptr<ConnectionHandler> conHandler(connectionHandler);
 
@@ -457,7 +457,7 @@ int CWebServer::FinalizeRequest(const std::shared_ptr<IHTTPRequestHandler>& hand
   return SendResponse(request, responseStatus, response);
 }
 
-std::shared_ptr<IHTTPRequestHandler> CWebServer::FindRequestHandler(HTTPRequest request) const
+std::shared_ptr<IHTTPRequestHandler> CWebServer::FindRequestHandler(const HTTPRequest& request) const
 {
   // look for a IHTTPRequestHandler which can take care of the current request
   auto requestHandlerIt = std::find_if(m_requestHandlers.cbegin(), m_requestHandlers.cend(),
@@ -473,7 +473,7 @@ std::shared_ptr<IHTTPRequestHandler> CWebServer::FindRequestHandler(HTTPRequest 
   return nullptr;
 }
 
-bool CWebServer::IsRequestCacheable(HTTPRequest request) const
+bool CWebServer::IsRequestCacheable(const HTTPRequest& request) const
 {
   // handle Cache-Control
   std::string cacheControl = HTTPRequestHandlerUtils::GetRequestHeaderValue(request.connection, MHD_HEADER_KIND, MHD_HTTP_HEADER_CACHE_CONTROL);
@@ -498,7 +498,7 @@ bool CWebServer::IsRequestCacheable(HTTPRequest request) const
   return true;
 }
 
-bool CWebServer::IsRequestRanged(HTTPRequest request, const CDateTime &lastModified) const
+bool CWebServer::IsRequestRanged(const HTTPRequest& request, const CDateTime &lastModified) const
 {
   // parse the Range header and store it in the request object
   CHttpRanges ranges;
@@ -523,7 +523,7 @@ bool CWebServer::IsRequestRanged(HTTPRequest request, const CDateTime &lastModif
   return !ranges.IsEmpty();
 }
 
-void CWebServer::SetupPostDataProcessing(HTTPRequest request, ConnectionHandler *connectionHandler, std::shared_ptr<IHTTPRequestHandler> handler, void **con_cls) const
+void CWebServer::SetupPostDataProcessing(const HTTPRequest& request, ConnectionHandler *connectionHandler, std::shared_ptr<IHTTPRequestHandler> handler, void **con_cls) const
 {
   connectionHandler->requestHandler = handler;
 
@@ -551,7 +551,7 @@ void CWebServer::SetupPostDataProcessing(HTTPRequest request, ConnectionHandler 
   }
 }
 
-bool CWebServer::ProcessPostData(HTTPRequest request, ConnectionHandler *connectionHandler, const char *upload_data, size_t *upload_data_size, void **con_cls) const
+bool CWebServer::ProcessPostData(const HTTPRequest& request, ConnectionHandler *connectionHandler, const char *upload_data, size_t *upload_data_size, void **con_cls) const
 {
   if (connectionHandler->requestHandler == nullptr)
   {
@@ -930,7 +930,7 @@ int CWebServer::CreateMemoryDownloadResponse(struct MHD_Connection *connection, 
   return MHD_YES;
 }
 
-int CWebServer::SendResponse(HTTPRequest request, int responseStatus, MHD_Response *response) const
+int CWebServer::SendResponse(const HTTPRequest& request, int responseStatus, MHD_Response *response) const
 {
   LogResponse(request, responseStatus);
 
@@ -940,7 +940,7 @@ int CWebServer::SendResponse(HTTPRequest request, int responseStatus, MHD_Respon
   return ret;
 }
 
-int CWebServer::SendErrorResponse(HTTPRequest request, int errorType, HTTPMethod method) const
+int CWebServer::SendErrorResponse(const HTTPRequest& request, int errorType, HTTPMethod method) const
 {
   struct MHD_Response *response = nullptr;
   int ret = CreateErrorResponse(request.connection, errorType, method, response);
@@ -984,11 +984,10 @@ int CWebServer::ContentReaderCallback(void *cls, size_t pos, char *buf, int max)
   if (context == nullptr || context->file == nullptr)
     return -1;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
 #if (MHD_VERSION >= 0x00090200)
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] write maximum %zu bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] write maximum %zu bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
 #else
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] write maximum %d bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] write maximum %d bytes from %" PRIu64 " (%" PRIu64 ")", max, context->writePosition, pos);
 #endif
 
   // check if we need to add the end-boundary
@@ -1058,8 +1057,7 @@ int CWebServer::ContentReaderCallback(void *cls, size_t pos, char *buf, int max)
   // add the number of read bytes to the number of written bytes
   written += res;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] wrote %d bytes from %" PRIu64 " in range (%" PRIu64 " - %" PRIu64 ")", written, context->writePosition, start, end);
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] wrote %d bytes from %" PRIu64 " in range (%" PRIu64 " - %" PRIu64 ")", written, context->writePosition, start, end);
 
   // update the current write position
   context->writePosition += res;
@@ -1080,8 +1078,7 @@ void CWebServer::ContentReaderFreeCallback(void *cls)
   HttpFileDownloadContext *context = (HttpFileDownloadContext *)cls;
   delete context;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer [OUT] done");
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer [OUT] done");
 }
 
 // local helper
@@ -1239,7 +1236,7 @@ void CWebServer::UnregisterRequestHandler(IHTTPRequestHandler *handler)
   m_requestHandlers.erase(std::remove(m_requestHandlers.begin(), m_requestHandlers.end(), handler), m_requestHandlers.end());
 }
 
-void CWebServer::LogRequest(HTTPRequest request) const
+void CWebServer::LogRequest(const HTTPRequest& request) const
 {
   if (!g_advancedSettings.CanLogComponent(LOGWEBSERVER))
     return;
@@ -1264,7 +1261,7 @@ void CWebServer::LogRequest(HTTPRequest request) const
     CLog::Log(LOGDEBUG, "CWebServer[%hu]  [IN] %s: %s", m_port, header.first.c_str(), header.second.c_str());
 }
 
-void CWebServer::LogResponse(HTTPRequest request, int responseStatus) const
+void CWebServer::LogResponse(const HTTPRequest& request, int responseStatus) const
 {
   if (!g_advancedSettings.CanLogComponent(LOGWEBSERVER))
     return;
@@ -1293,8 +1290,7 @@ int CWebServer::AddHeader(struct MHD_Response *response, const std::string &name
   if (response == nullptr || name.empty())
     return 0;
 
-  if (g_advancedSettings.CanLogComponent(LOGWEBSERVER))
-    CLog::Log(LOGDEBUG, "CWebServer[%hu] [OUT] %s: %s", m_port, name.c_str(), value.c_str());
+  CLog::Log(LOGDEBUG, LOGWEBSERVER, "CWebServer[%hu] [OUT] %s: %s", m_port, name.c_str(), value.c_str());
 
   return MHD_add_response_header(response, name.c_str(), value.c_str());
 }

@@ -43,6 +43,7 @@ public:
   static const std::string SETTING_LOOKANDFEEL_SKINCOLORS;
   static const std::string SETTING_LOOKANDFEEL_FONT;
   static const std::string SETTING_LOOKANDFEEL_SKINZOOM;
+  static const std::string SETTING_LOOKANDFEEL_STARTUPACTION;
   static const std::string SETTING_LOOKANDFEEL_STARTUPWINDOW;
   static const std::string SETTING_LOOKANDFEEL_SOUNDSKIN;
   static const std::string SETTING_LOOKANDFEEL_ENABLERSSFEEDS;
@@ -170,10 +171,10 @@ public:
   static const std::string SETTING_PVRMANAGER_CHANNELSCAN;
   static const std::string SETTING_PVRMANAGER_RESETDB;
   static const std::string SETTING_PVRMENU_DISPLAYCHANNELINFO;
-  static const std::string SETTING_PVRMENU_CLOSECHANNELOSDONSWITCH;
   static const std::string SETTING_PVRMENU_ICONPATH;
   static const std::string SETTING_PVRMENU_SEARCHICONS;
-  static const std::string SETTING_EPG_DAYSTODISPLAY;
+  static const std::string SETTING_EPG_PAST_DAYSTODISPLAY;
+  static const std::string SETTING_EPG_FUTURE_DAYSTODISPLAY;
   static const std::string SETTING_EPG_SELECTACTION;
   static const std::string SETTING_EPG_HIDENOINFOAVAILABLE;
   static const std::string SETTING_EPG_EPGUPDATE;
@@ -181,9 +182,7 @@ public:
   static const std::string SETTING_EPG_IGNOREDBFORCLIENT;
   static const std::string SETTING_EPG_RESETEPG;
   static const std::string SETTING_PVRPLAYBACK_SWITCHTOFULLSCREEN;
-  static const std::string SETTING_PVRPLAYBACK_STARTLAST;
   static const std::string SETTING_PVRPLAYBACK_SIGNALQUALITY;
-  static const std::string SETTING_PVRPLAYBACK_SCANTIME;
   static const std::string SETTING_PVRPLAYBACK_CONFIRMCHANNELSWITCH;
   static const std::string SETTING_PVRPLAYBACK_CHANNELENTRYTIMEOUT;
   static const std::string SETTING_PVRPLAYBACK_FPS;
@@ -252,6 +251,7 @@ public:
   static const std::string SETTING_WEATHER_ADDON;
   static const std::string SETTING_WEATHER_ADDONSETTINGS;
   static const std::string SETTING_SERVICES_DEVICENAME;
+  static const std::string SETTING_SERVICES_UPNP;
   static const std::string SETTING_SERVICES_UPNPSERVER;
   static const std::string SETTING_SERVICES_UPNPANNOUNCE;
   static const std::string SETTING_SERVICES_UPNPLOOKFOREXTERNALSUBTITLES;
@@ -277,6 +277,7 @@ public:
   static const std::string SETTING_SERVICES_AIRPLAYVIDEOSUPPORT;
   static const std::string SETTING_SMB_WINSSERVER;
   static const std::string SETTING_SMB_WORKGROUP;
+  static const std::string SETTING_SMB_MAXPROTOCOL;
   static const std::string SETTING_VIDEOSCREEN_MONITOR;
   static const std::string SETTING_VIDEOSCREEN_SCREEN;
   static const std::string SETTING_VIDEOSCREEN_RESOLUTION;
@@ -389,7 +390,7 @@ public:
    be used.
    */
   CSettings() = default;
-  virtual ~CSettings() = default;
+  ~CSettings() override = default;
 
   CSettingsManager* GetSettingsManager() const { return m_settingsManager; }
 

@@ -25,15 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "addons/AudioDecoder.h"
-#include "addons/BinaryAddonCache.h"
-#include "addons/IAddon.h"
-#include "addons/ImageDecoder.h"
-#include "addons/binary-addons/BinaryAddonBase.h"
 #include "Application.h"
 #include "ServiceBroker.h"
 #include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
+#include "guilib/LocalizeStrings.h"
 #include "LangInfo.h"
 #include "network/DNSNameCache.h"
 #include "profiles/ProfilesManager.h"
@@ -160,7 +156,6 @@ void CAdvancedSettings::Initialize()
   m_DXVAForceProcessorRenderer = true;
   m_DXVAAllowHqScaling = true;
   m_videoFpsDetect = 1;
-  m_videoBusyDialogDelay_ms = 500;
 
   m_mediacodecForceSoftwareRendering = false;
 
@@ -247,10 +242,11 @@ void CAdvancedSettings::Initialize()
   m_tvshowEnumRegExps.push_back(TVShowRegexp(true,"([0-9]{2})[\\.-]([0-9]{2})[\\.-]([0-9]{4})"));
   // foo.1x09* or just /1x09*
   m_tvshowEnumRegExps.push_back(TVShowRegexp(false,"[\\\\/\\._ \\[\\(-]([0-9]+)x([0-9]+(?:(?:[a-i]|\\.[1-9])(?![0-9]))?)([^\\\\/]*)$"));
-  // foo.103*, 103 foo
-  m_tvshowEnumRegExps.push_back(TVShowRegexp(false,"[\\\\/\\._ -]([0-9]+)([0-9][0-9](?:(?:[a-i]|\\.[1-9])(?![0-9]))?)([\\._ -][^\\\\/]*)$"));
   // Part I, Pt.VI, Part 1
   m_tvshowEnumRegExps.push_back(TVShowRegexp(false,"[\\/._ -]p(?:ar)?t[_. -]()([ivx]+|[0-9]+)([._ -][^\\/]*)$"));
+  // foo.103*, 103 foo
+  // XXX: This regex is greedy and will match years in show names.  It should always be last.
+  m_tvshowEnumRegExps.push_back(TVShowRegexp(false,"[\\\\/\\._ -]([0-9]+)([0-9][0-9](?:(?:[a-i]|\\.[1-9])(?![0-9]))?)([\\._ -][^\\\\/]*)$"));
 
   m_tvshowMultiPartEnumRegExp = "^[-_ex]+([0-9]+(?:(?:[a-i]|\\.[1-9])(?![0-9]))?)";
 
@@ -264,7 +260,7 @@ void CAdvancedSettings::Initialize()
   m_imageRes = 720;
   m_imageScalingAlgorithm = CPictureScalingAlgorithm::Default;
 
-  m_sambaclienttimeout = 10;
+  m_sambaclienttimeout = 30;
   m_sambadoscodepage = "";
   m_sambastatfiles = true;
 
@@ -298,7 +294,6 @@ void CAdvancedSettings::Initialize()
   m_bVideoScannerIgnoreErrors = false;
   m_iVideoLibraryDateAdded = 1; // prefer mtime over ctime and current time
 
-  m_iEpgLingerTime = 60 * 24;           /* keep 24 hours by default */
   m_iEpgUpdateCheckInterval = 300; /* check if tables need to be updated every 5 minutes */
   m_iEpgCleanupInterval = 900;     /* remove old entries from the EPG every 15 minutes */
   m_iEpgActiveTagCheckInterval = 60; /* check for updated active tags every minute */
@@ -321,7 +316,7 @@ void CAdvancedSettings::Initialize()
   m_screenAlign_xStretchFactor = 1.0;
   m_screenAlign_yStretchFactor = 1.0;
 
-  m_curlconnecttimeout = 10;
+  m_curlconnecttimeout = 30;
   m_curllowspeedtime = 20;
   m_curlretries = 2;
   m_curlDisableIPV6 = false;      //Certain hardware/OS combinations have trouble
@@ -373,11 +368,7 @@ void CAdvancedSettings::Initialize()
 
   m_enableMultimediaKeys = false;
 
-#if defined(TARGET_DARWIN_IOS)
-  m_canWindowed = false;
-#else
   m_canWindowed = true;
-#endif
   m_guiVisualizeDirtyRegions = false;
   m_guiAlgorithmDirtyRegions = 3;
   m_guiSmartRedraw = false;
@@ -689,10 +680,6 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
     //0 = disable fps detect, 1 = only detect on timestamps with uniform spacing, 2 detect on all timestamps
     XMLUtils::GetInt(pElement, "fpsdetect", m_videoFpsDetect, 0, 2);
 
-    // controls the delay, in milliseconds, until
-    // the busy dialog is shown when starting video playback.
-    XMLUtils::GetInt(pElement, "busydialogdelayms", m_videoBusyDialogDelay_ms, 0, 1000);
-
     // Store global display latency settings
     TiXmlElement* pVideoLatency = pElement->FirstChildElement("latency");
     if (pVideoLatency)
@@ -883,7 +870,6 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
   pElement = pRootElement->FirstChildElement("epg");
   if (pElement)
   {
-    XMLUtils::GetInt(pElement, "lingertime", m_iEpgLingerTime);
     XMLUtils::GetInt(pElement, "updatecheckinterval", m_iEpgUpdateCheckInterval);
     XMLUtils::GetInt(pElement, "cleanupinterval", m_iEpgCleanupInterval);
     XMLUtils::GetInt(pElement, "activetagcheckinterval", m_iEpgActiveTagCheckInterval);
@@ -1353,17 +1339,17 @@ void CAdvancedSettings::AddSettingsFile(const std::string &filename)
   m_settingsFiles.push_back(filename);
 }
 
-float CAdvancedSettings::GetDisplayLatency(float refreshrate)
+float CAdvancedSettings::GetLatencyTweak(float refreshrate)
 {
-  float delay = m_videoDefaultLatency / 1000.0f;
+  float delay = m_videoDefaultLatency;
   for (int i = 0; i < (int) m_videoRefreshLatency.size(); i++)
   {
     RefreshVideoLatency& videolatency = m_videoRefreshLatency[i];
     if (refreshrate >= videolatency.refreshmin && refreshrate <= videolatency.refreshmax)
-      delay = videolatency.delay / 1000.0f;
+      delay = videolatency.delay;
   }
 
-  return delay; // in seconds
+  return delay; // in milliseconds
 }
 
 void CAdvancedSettings::SetDebugMode(bool debug)
@@ -1399,6 +1385,7 @@ void CAdvancedSettings::SettingOptionsLoggingComponentsFiller(SettingConstPtr se
   list.push_back(std::make_pair(g_localizeStrings.Get(672), LOGFFMPEG));
   list.push_back(std::make_pair(g_localizeStrings.Get(676), LOGAUDIO));
   list.push_back(std::make_pair(g_localizeStrings.Get(680), LOGVIDEO));
+  list.push_back(std::make_pair(g_localizeStrings.Get(683), LOGAVTIMING));
 #ifdef HAS_DBUS
   list.push_back(std::make_pair(g_localizeStrings.Get(674), LOGDBUS));
 #endif
@@ -1417,6 +1404,7 @@ void CAdvancedSettings::SettingOptionsLoggingComponentsFiller(SettingConstPtr se
 #ifdef HAVE_LIBCEC
   list.push_back(std::make_pair(g_localizeStrings.Get(679), LOGCEC));
 #endif
+  list.push_back(std::make_pair(g_localizeStrings.Get(682), LOGDATABASE));
 }
 
 void CAdvancedSettings::setExtraLogLevel(const std::vector<CVariant> &components)
@@ -1429,36 +1417,4 @@ void CAdvancedSettings::setExtraLogLevel(const std::vector<CVariant> &components
 
     m_extraLogLevels |= static_cast<int>(it->asInteger());
   }
-}
-
-std::string CAdvancedSettings::GetMusicExtensions() const
-{
-  std::string result(m_musicExtensions);
-
-  VECADDONS codecs;
-  CBinaryAddonCache &addonCache = CServiceBroker::GetBinaryAddonCache();
-  addonCache.GetAddons(codecs, ADDON_AUDIODECODER);
-  for (size_t i=0;i<codecs.size();++i)
-  {
-    std::shared_ptr<CAudioDecoder> dec(std::static_pointer_cast<CAudioDecoder>(codecs[i]));
-    result += '|';
-    result += dec->GetExtensions();
-  }
-
-  return result;
-}
-
-std::string CAdvancedSettings::GetPictureExtensions() const
-{
-  std::string result(m_pictureExtensions);
-
-  BinaryAddonBaseList addonInfos;
-  CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true, ADDON_IMAGEDECODER);
-  for (auto addonInfo : addonInfos)
-  {
-    result += '|';
-    result += addonInfo->Type(ADDON_IMAGEDECODER)->GetValue("@extension").asString();
-  }
-
-  return result;
 }

@@ -18,15 +18,17 @@
  *  <http://www.gnu.org/licenses/>.
  *
  */
-
+#include <vector>
 #include "Application.h"
 #include "addons/Addon.h"
+#include "addons/settings/AddonSettings.h"
 #include "AddonCallbacksAddon.h"
 #include "utils/log.h"
 #include "LangInfo.h"
 #include "dialogs/GUIDialogKaiToast.h"
 #include "filesystem/File.h"
 #include "filesystem/Directory.h"
+#include "guilib/LocalizeStrings.h"
 #include "FileItem.h"
 #include "network/Network.h"
 #include "utils/CharsetConverter.h"
@@ -58,6 +60,7 @@ CAddonCallbacksAddon::CAddonCallbacksAddon(CAddon* addon)
   m_callbacks->GetLocalizedString = GetLocalizedString;
   m_callbacks->GetDVDMenuLanguage = GetDVDMenuLanguage;
   m_callbacks->FreeString         = FreeString;
+  m_callbacks->FreeStringArray    = FreeStringArray;
 
   m_callbacks->OpenFile           = OpenFile;
   m_callbacks->OpenFileForWrite   = OpenFileForWrite;
@@ -74,6 +77,8 @@ CAddonCallbacksAddon::CAddonCallbacksAddon(CAddon* addon)
   m_callbacks->GetFileChunkSize   = GetFileChunkSize;
   m_callbacks->FileExists         = FileExists;
   m_callbacks->StatFile           = StatFile;
+  m_callbacks->GetFilePropertyValue = GetFilePropertyValue;
+  m_callbacks->GetFilePropertyValues = GetFilePropertyValues;
   m_callbacks->DeleteFile         = DeleteFile;
 
   m_callbacks->CanOpenDirectory   = CanOpenDirectory;
@@ -312,6 +317,15 @@ void CAddonCallbacksAddon::FreeString(const void* addonData, char* str)
   free(str);
 }
 
+void CAddonCallbacksAddon::FreeStringArray(const void* addonData, char** arr, int numElements)
+{
+  for (int i = 0; i < numElements; ++i)
+  {
+    free(arr[i]);
+  }
+  free(arr);
+}
+
 void* CAddonCallbacksAddon::OpenFile(const void* addonData, const char* strFileName, unsigned int flags)
 {
   CAddonInterfaces* helper = (CAddonInterfaces*) addonData;
@@ -500,6 +514,45 @@ int CAddonCallbacksAddon::StatFile(const void* addonData, const char *strFileNam
     return -1;
 
   return CFile::Stat(strFileName, buffer);
+}
+
+char *CAddonCallbacksAddon::GetFilePropertyValue(const void* addonData, void* file, XFILE::FileProperty type, const char *name)
+{
+  CAddonInterfaces* helper = (CAddonInterfaces*)addonData;
+  if (!helper)
+    return nullptr;
+
+  CFile* cfile = (CFile*)file;
+  if (cfile)
+  {
+    std::vector<std::string> values = cfile->GetPropertyValues(type, name);
+    if (values.empty()) {
+      return nullptr;
+    }
+    return strdup(values[0].c_str());
+  }
+  return nullptr;
+}
+
+char **CAddonCallbacksAddon::GetFilePropertyValues(const void* addonData, void* file, XFILE::FileProperty type, const char *name, int *numValues)
+{
+  CAddonInterfaces* helper = (CAddonInterfaces*)addonData;
+  if (!helper)
+    return nullptr;
+
+  CFile* cfile = static_cast<CFile*>(file);
+  if (!cfile)
+  {
+    return nullptr;
+  }
+  std::vector<std::string> values = cfile->GetPropertyValues(type, name);
+  *numValues = values.size();
+  char **ret = static_cast<char**>(malloc(sizeof(char*)*values.size()));
+  for (int i = 0; i < *numValues; ++i)
+  {
+    ret[i] = strdup(values[i].c_str());
+  }
+  return ret;
 }
 
 bool CAddonCallbacksAddon::DeleteFile(const void* addonData, const char *strFileName)

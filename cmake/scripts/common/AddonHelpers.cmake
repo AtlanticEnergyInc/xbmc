@@ -52,7 +52,8 @@ macro (build_addon target prefix libs)
     # Read used headers from addon, needed to identitfy used kodi addon interface headers
     if(${prefix}_HEADERS)
       # Add the used header files defined with CMakeLists.txt from addon itself
-      if(${prefix}_HEADERS MATCHES ${PROJECT_SOURCE_DIR})
+      string(FIND "${${prefix}_HEADERS}" "${PROJECT_SOURCE_DIR}" position)
+      if(position GREATER -1)
         # include path name already complete
         list(APPEND USED_SOURCES ${${prefix}_HEADERS})
       else()
@@ -75,7 +76,8 @@ macro (build_addon target prefix libs)
     endif()
 
     # Add the used source files defined with CMakeLists.txt from addon itself
-    if(${prefix}_SOURCES MATCHES ${PROJECT_SOURCE_DIR})
+    string(FIND "${${prefix}_SOURCES}" "${PROJECT_SOURCE_DIR}" position)
+    if(position GREATER -1)
       # include path name already complete
       list(APPEND USED_SOURCES ${${prefix}_SOURCES})
     else()
@@ -228,7 +230,9 @@ macro (build_addon target prefix libs)
     set(CPACK_COMPONENTS_IGNORE_GROUPS 1)
     list(APPEND CPACK_COMPONENTS_ALL ${target}-${${prefix}_VERSION})
     # Pack files together to create an archive
-    install(DIRECTORY ${target} DESTINATION ./ COMPONENT ${target}-${${prefix}_VERSION} PATTERN "xml.in" EXCLUDE)
+    install(DIRECTORY ${target} DESTINATION ./
+                                COMPONENT ${target}-${${prefix}_VERSION}
+                                REGEX ".+\\.xml\\.in(clude)?$" EXCLUDE)
     if(WIN32)
       if(NOT CPACK_PACKAGE_DIRECTORY)
         # determine the temporary path
@@ -255,8 +259,7 @@ macro (build_addon target prefix libs)
 
         if(CMAKE_BUILD_TYPE MATCHES Debug)
           # for debug builds also install the PDB file
-          get_filename_component(LIBRARY_DIR ${LIBRARY_LOCATION} DIRECTORY)
-          install(FILES ${LIBRARY_DIR}/${target}.pdb DESTINATION ${target}
+          install(FILES $<TARGET_PDB_FILE:${target}> DESTINATION ${target}
                   COMPONENT ${target}-${${prefix}_VERSION})
         endif()
       endif()
@@ -265,6 +268,9 @@ macro (build_addon target prefix libs)
       endif()
       if(${prefix}_CUSTOM_DATA)
         install(DIRECTORY ${${prefix}_CUSTOM_DATA} DESTINATION ${target}/resources)
+      endif()
+      if(${prefix}_ADDITIONAL_BINARY)
+        install(FILES ${${prefix}_ADDITIONAL_BINARY} DESTINATION ${target})
       endif()
     else() # NOT WIN32
       if(NOT CPACK_PACKAGE_DIRECTORY)
@@ -281,10 +287,13 @@ macro (build_addon target prefix libs)
       if(${prefix}_CUSTOM_DATA)
         install(DIRECTORY ${${prefix}_CUSTOM_DATA} DESTINATION ${target}/resources)
       endif()
+      if(${prefix}_ADDITIONAL_BINARY)
+        install(FILES ${${prefix}_ADDITIONAL_BINARY} DESTINATION ${target})
+      endif()
     endif()
     add_cpack_workaround(${target} ${${prefix}_VERSION} ${ext})
   else()
-    if(CORE_SYSTEM_NAME STREQUAL linux OR CORE_SYSTEM_NAME STREQUAL rbpi OR CORE_SYSTEM_NAME STREQUAL freebsd)
+    if(CORE_SYSTEM_NAME STREQUAL linux OR CORE_SYSTEM_NAME STREQUAL freebsd)
       if(NOT OVERRIDE_PATHS)
         if(CMAKE_INSTALL_PREFIX AND NOT CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT CMAKE_INSTALL_PREFIX STREQUAL "${${APP_NAME_UC}_PREFIX}")
           message(WARNING "CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} differs from ${APP_NAME} prefix, changing to ${${APP_NAME_UC}_PREFIX}. Please pass -DOVERRIDE_PATHS=1 to skip this check")
@@ -316,9 +325,13 @@ macro (build_addon target prefix libs)
     if (${prefix}_CUSTOM_BINARY)
       install(FILES ${LIBRARY_LOCATION} DESTINATION ${CMAKE_INSTALL_LIBDIR}/addons/${target} RENAME ${LIBRARY_FILENAME})
     endif()
-    install(DIRECTORY ${target} DESTINATION ${CMAKE_INSTALL_DATADIR}/addons PATTERN "xml.in" EXCLUDE)
+    install(DIRECTORY ${target} DESTINATION ${CMAKE_INSTALL_DATADIR}/addons
+                                REGEX ".+\\.xml\\.in(clude)?$" EXCLUDE)
     if(${prefix}_CUSTOM_DATA)
       install(DIRECTORY ${${prefix}_CUSTOM_DATA} DESTINATION ${CMAKE_INSTALL_DATADIR}/addons/${target}/resources)
+    endif()
+    if(${prefix}_ADDITIONAL_BINARY)
+      install(FILES ${${prefix}_ADDITIONAL_BINARY} DESTINATION ${CMAKE_INSTALL_LIBDIR}/addons/${target})
     endif()
   endif()
   if(${APP_NAME_UC}_BUILD_DIR)
@@ -340,6 +353,12 @@ macro (build_addon target prefix libs)
                        COMMAND ${CMAKE_COMMAND} -E copy
                                    ${LIBRARY_LOCATION}
                                    ${${APP_NAME_UC}_BUILD_DIR}/addons/${target}/${LIBRARY_FILENAME})
+    if(${prefix}_ADDITIONAL_BINARY)
+        add_custom_command(TARGET ${target} POST_BUILD
+                           COMMAND ${CMAKE_COMMAND} -E copy
+                                   ${${prefix}_ADDITIONAL_BINARY}
+                                   ${${APP_NAME_UC}_BUILD_DIR}/addons/${target})
+    endif()
   endif()
 endmacro()
 

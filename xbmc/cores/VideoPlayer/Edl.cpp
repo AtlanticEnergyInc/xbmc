@@ -47,7 +47,7 @@ void CEdl::Clear()
   m_vecCuts.clear();
   m_vecSceneMarkers.clear();
   m_iTotalCutTime = 0;
-  m_lastCheckASSTime = 0;
+  m_lastCutTime = 0;
 }
 
 bool CEdl::ReadEditDecisionLists(const std::string& strMovie, const float fFrameRate, const int iHeight)
@@ -770,19 +770,19 @@ int CEdl::RemoveCutTime(int iSeek) const
   return iSeek - iCutTime;
 }
 
-int CEdl::RestoreCutTime(int iClock) const
+double CEdl::RestoreCutTime(double dClock) const
 {
   if (!HasCut())
-    return iClock;
+    return dClock;
 
-  int iSeek = iClock;
+  double dSeek = dClock;
   for (int i = 0; i < (int)m_vecCuts.size(); i++)
   {
-    if (m_vecCuts[i].action == CUT && iSeek >= m_vecCuts[i].start)
-      iSeek += m_vecCuts[i].end - m_vecCuts[i].start;
+    if (m_vecCuts[i].action == CUT && dSeek >= m_vecCuts[i].start)
+      dSeek += static_cast<double>(m_vecCuts[i].end - m_vecCuts[i].start);
   }
 
-  return iSeek;
+  return dSeek;
 }
 
 bool CEdl::HasSceneMarker() const
@@ -842,14 +842,14 @@ bool CEdl::InCut(const int iSeek, Cut *pCut)
   return false;
 }
 
-int CEdl::GetLastCheckASSTime() const
+int CEdl::GetLastCutTime() const
 {
-  return m_lastCheckASSTime;
+  return m_lastCutTime;
 }
 
-void CEdl::SetLastCheckASSTime(const int iCheckASSTime)
+void CEdl::SetLastCutTime(const int iCutTime)
 {
-  m_lastCheckASSTime = iCheckASSTime;
+  m_lastCutTime = iCutTime;
 }
 
 bool CEdl::GetNearestCut(bool bPlus, const int iSeek, Cut *pCut) const

@@ -23,6 +23,16 @@
 #include "WinSystemRpiGLESContext.h"
 #include "guilib/GUIWindowManager.h"
 #include "utils/log.h"
+#include "cores/RetroPlayer/process/rbpi/RPProcessInfoPi.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererMMAL.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.h"
+#include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
+#include "cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.h"
+#include "cores/VideoPlayer/DVDCodecs/Video/MMALCodec.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+#include "cores/VideoPlayer/Process/rbpi/ProcessInfoPi.h"
+
+using namespace KODI;
 
 bool CWinSystemRpiGLESContext::InitWindowSystem()
 {
@@ -37,6 +47,16 @@ bool CWinSystemRpiGLESContext::InitWindowSystem()
   {
     return false;
   }
+  CProcessInfoPi::Register();
+  RETRO::CRPProcessInfoPi::Register();
+  //RETRO::CRPProcessInfoPi::RegisterRendererFactory(new RETRO::CRendererFactoryMMAL); //! @todo
+  RETRO::CRPProcessInfoPi::RegisterRendererFactory(new RETRO::CRendererFactoryGuiTexture);
+  CDVDFactoryCodec::ClearHWAccels();
+  MMAL::CDecoder::Register();
+  CDVDFactoryCodec::ClearHWVideoCodecs();
+  MMAL::CMMALVideo::Register();
+  VIDEOPLAYER::CRendererFactory::ClearRenderer();
+  MMAL::CMMALRenderer::Register();
 
   return true;
 }
@@ -90,14 +110,14 @@ bool CWinSystemRpiGLESContext::CreateNewWindow(const std::string& name,
 
 bool CWinSystemRpiGLESContext::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
 {
-  CRenderSystemGLES::ResetRenderSystem(newWidth, newHeight, true, 0);
+  CRenderSystemGLES::ResetRenderSystem(newWidth, newHeight);
   return true;
 }
 
 bool CWinSystemRpiGLESContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
 {
   CreateNewWindow("", fullScreen, res);
-  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
+  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight);
   return true;
 }
 

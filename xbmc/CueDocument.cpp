@@ -74,7 +74,7 @@ class CueReader
 public:
   virtual bool ready() const = 0;
   virtual bool ReadLine(std::string &line) = 0;
-  virtual ~CueReader() {}
+  virtual ~CueReader() = default;
 private:
   std::string m_sourcePath;
 };
@@ -83,11 +83,11 @@ class FileReader
   : public CueReader
 {
 public:
-  FileReader(const std::string &strFile)
+  explicit FileReader(const std::string &strFile) : m_szBuffer{}
   {
     m_opened = m_file.Open(strFile);
   }
-  virtual bool ReadLine(std::string &line)
+  bool ReadLine(std::string &line) override
   {
     // Read the next line.
     while (m_file.ReadString(m_szBuffer, 1023)) // Bigger than MAX_PATH_SIZE, for usage with relax!
@@ -101,11 +101,11 @@ public:
     }
     return false;
   }
-  virtual bool ready() const
+  bool ready() const override
   {
     return m_opened;
   }
-  virtual ~FileReader()
+  ~FileReader() override
   {
     if (m_opened)
       m_file.Close();
@@ -121,12 +121,12 @@ class BufferReader
   : public CueReader
 {
 public:
-  BufferReader(const std::string &strContent)
+  explicit BufferReader(const std::string &strContent)
     : m_data(strContent)
     , m_pos(0)
   {
   }
-  virtual bool ReadLine(std::string &line)
+  bool ReadLine(std::string &line) override
   {
     // Read the next line.
     line.clear();
@@ -146,7 +146,7 @@ public:
     }
     return false;
   }
-  virtual bool ready() const
+  bool ready() const override
   {
     return m_data.size() > 0;
   }
@@ -163,8 +163,7 @@ CCueDocument::CCueDocument()
 {
 }
 
-CCueDocument::~CCueDocument()
-{}
+CCueDocument::~CCueDocument() = default;
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Function: ParseFile()

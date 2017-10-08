@@ -79,7 +79,7 @@ bool CWeatherJob::DoWork()
     return false;
 
   AddonPtr addon;
-  if (!ADDON::CAddonMgr::GetInstance().GetAddon(CServiceBroker::GetSettings().GetString(CSettings::SETTING_WEATHER_ADDON), addon, ADDON_SCRIPT_WEATHER))
+  if (!CServiceBroker::GetAddonMgr().GetAddon(CServiceBroker::GetSettings().GetString(CSettings::SETTING_WEATHER_ADDON), addon, ADDON_SCRIPT_WEATHER))
     return false;
 
   // initialize our sys.argv variables
@@ -308,9 +308,7 @@ CWeather::CWeather(void) : CInfoLoader(30 * 60 * 1000) // 30 minutes
   Reset();
 }
 
-CWeather::~CWeather(void)
-{
-}
+CWeather::~CWeather(void) = default;
 
 std::string CWeather::BusyInfo(int info) const
 {
@@ -394,7 +392,7 @@ CJob *CWeather::GetJob() const
 
 void CWeather::OnJobComplete(unsigned int jobID, bool success, CJob *job)
 {
-  m_info = ((CWeatherJob *)job)->GetInfo();
+  m_info = static_cast<CWeatherJob*>(job)->GetInfo();
   CInfoLoader::OnJobComplete(jobID, success, job);
 }
 
@@ -423,7 +421,7 @@ void CWeather::OnSettingAction(std::shared_ptr<const CSetting> setting)
   if (settingId == CSettings::SETTING_WEATHER_ADDONSETTINGS)
   {
     AddonPtr addon;
-    if (CAddonMgr::GetInstance().GetAddon(CServiceBroker::GetSettings().GetString(CSettings::SETTING_WEATHER_ADDON), addon, ADDON_SCRIPT_WEATHER) && addon != NULL)
+    if (CServiceBroker::GetAddonMgr().GetAddon(CServiceBroker::GetSettings().GetString(CSettings::SETTING_WEATHER_ADDON), addon, ADDON_SCRIPT_WEATHER) && addon != NULL)
     { //! @todo maybe have ShowAndGetInput return a bool if settings changed, then only reset weather if true.
       CGUIDialogAddonSettings::ShowForAddon(addon);
       Refresh();

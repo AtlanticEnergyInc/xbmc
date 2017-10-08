@@ -21,7 +21,7 @@
 
 #include "system.h"
 
-#if defined(HAS_GL) || HAS_GLES == 2
+#if defined(HAS_GL) || HAS_GLES >= 2
 #include "system_gl.h"
 
 #include <cmath>
@@ -326,10 +326,7 @@ void CMatrixGL::PrintMatrix(void)
 
 void CMatrixGLStack::Load()
 {
-#ifdef HAS_GL
-  glMatrixMode(m_type);
-  glLoadMatrixf(m_current);
-#endif
+
 }
 
 #endif

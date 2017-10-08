@@ -37,7 +37,6 @@
 #endif
 #include "dialogs/GUIDialogKaiToast.h"
 #include "dialogs/GUIDialogMediaFilter.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogProgress.h"
 #include "dialogs/GUIDialogSmartPlaylistEditor.h"
 #include "favourites/FavouritesService.h"
@@ -52,6 +51,7 @@
 #include "guilib/LocalizeStrings.h"
 #include "interfaces/generic/ScriptInvocationManager.h"
 #include "input/Key.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "network/Network.h"
 #include "playlists/PlayList.h"
 #include "profiles/ProfilesManager.h"
@@ -672,7 +672,7 @@ bool CGUIMediaWindow::GetDirectory(const std::string &strDirectory, CFileItemLis
   CLog::Log(LOGDEBUG,"  ParentPath = [%s]", CURL::GetRedacted(strParentPath).c_str());
 
   if (pathToUrl.IsProtocol("plugin"))
-    CAddonMgr::GetInstance().UpdateLastUsed(pathToUrl.GetHostName());
+    CServiceBroker::GetAddonMgr().UpdateLastUsed(pathToUrl.GetHostName());
 
   // see if we can load a previously cached folder
   CFileItemList cachedItems(strDirectory);
@@ -978,11 +978,11 @@ bool CGUIMediaWindow::OnClick(int iItem, const std::string &player)
     // execute the script
     CURL url(pItem->GetPath());
     AddonPtr addon;
-    if (CAddonMgr::GetInstance().GetAddon(url.GetHostName(), addon, ADDON_SCRIPT))
+    if (CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(), addon, ADDON_SCRIPT))
     {
       if (!CScriptInvocationManager::GetInstance().Stop(addon->LibPath()))
       {
-        CAddonMgr::GetInstance().UpdateLastUsed(addon->ID());
+        CServiceBroker::GetAddonMgr().UpdateLastUsed(addon->ID());
         CScriptInvocationManager::GetInstance().ExecuteAsync(addon->LibPath(), addon);
       }
       return true;
@@ -1039,7 +1039,8 @@ bool CGUIMediaWindow::OnClick(int iItem, const std::string &player)
   }
   else if (pItem->IsPlugin() && !pItem->GetProperty("isplayable").asBoolean())
   {
-    return XFILE::CPluginDirectory::RunScriptWithParams(pItem->GetPath());
+    bool resume = pItem->m_lStartOffset == STARTOFFSET_RESUME;
+    return XFILE::CPluginDirectory::RunScriptWithParams(pItem->GetPath(), resume);
   }
 #if defined(TARGET_ANDROID)
   else if (pItem->IsAndroidApp())
@@ -1073,7 +1074,7 @@ bool CGUIMediaWindow::OnClick(int iItem, const std::string &player)
     {
       CURL url(m_vecItems->GetPath());
       AddonPtr addon;
-      if (CAddonMgr::GetInstance().GetAddon(url.GetHostName(),addon))
+      if (CServiceBroker::GetAddonMgr().GetAddon(url.GetHostName(),addon))
       {
         PluginPtr plugin = std::dynamic_pointer_cast<CPluginSource>(addon);
         if (plugin && plugin->Provides(CPluginSource::AUDIO))
@@ -1116,7 +1117,7 @@ bool CGUIMediaWindow::HaveDiscOrConnection(const std::string& strPath, int iDriv
   {
     if (!g_mediaManager.IsDiscInDrive(strPath))
     {
-      CGUIDialogOK::ShowAndGetInput(CVariant{218}, CVariant{219});
+      HELPERS::ShowOKDialogText(CVariant{218}, CVariant{219});
       return false;
     }
   }
@@ -1125,7 +1126,7 @@ bool CGUIMediaWindow::HaveDiscOrConnection(const std::string& strPath, int iDriv
     //! @todo Handle not connected to a remote share
     if ( !g_application.getNetwork().IsConnected() )
     {
-      CGUIDialogOK::ShowAndGetInput(CVariant{220}, CVariant{221});
+      HELPERS::ShowOKDialogText(CVariant{220}, CVariant{221});
       return false;
     }
   }
@@ -1151,7 +1152,7 @@ void CGUIMediaWindow::ShowShareErrorMessage(CFileItem* pItem) const
   else
     idMessageText = 15300; // Path not found or invalid
 
-  CGUIDialogOK::ShowAndGetInput(CVariant{220}, CVariant{idMessageText});
+  HELPERS::ShowOKDialogText(CVariant{220}, CVariant{idMessageText});
 }
 
 /*!
@@ -1396,8 +1397,8 @@ bool CGUIMediaWindow::OnPlayMedia(int iItem, const std::string &player)
 {
   // Reset Playlistplayer, playback started now does
   // not use the playlistplayer.
-  g_playlistPlayer.Reset();
-  g_playlistPlayer.SetCurrentPlaylist(PLAYLIST_NONE);
+  CServiceBroker::GetPlaylistPlayer().Reset();
+  CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(PLAYLIST_NONE);
   CFileItemPtr pItem=m_vecItems->Get(iItem);
 
   CLog::Log(LOGDEBUG, "%s %s", __FUNCTION__, CURL::GetRedacted(pItem->GetPath()).c_str());
@@ -1428,8 +1429,8 @@ bool CGUIMediaWindow::OnPlayAndQueueMedia(const CFileItemPtr &item, std::string 
   int iPlaylist = m_guiState->GetPlaylist();
   if (iPlaylist != PLAYLIST_NONE)
   {
-    g_playlistPlayer.ClearPlaylist(iPlaylist);
-    g_playlistPlayer.Reset();
+    CServiceBroker::GetPlaylistPlayer().ClearPlaylist(iPlaylist);
+    CServiceBroker::GetPlaylistPlayer().Reset();
     int mediaToPlay = 0;
     
     // first try to find mainDVD file (VIDEO_TS.IFO). 
@@ -1454,11 +1455,11 @@ bool CGUIMediaWindow::OnPlayAndQueueMedia(const CFileItemPtr &item, std::string 
         continue;
 
       if (!nItem->IsPlayList() && !nItem->IsZIP() && !nItem->IsRAR() && (!nItem->IsDVDFile() || (URIUtils::GetFileName(nItem->GetPath()) == mainDVD)))
-        g_playlistPlayer.Add(iPlaylist, nItem);
+        CServiceBroker::GetPlaylistPlayer().Add(iPlaylist, nItem);
 
       if (item->IsSamePath(nItem.get()))
       { // item that was clicked
-        mediaToPlay = g_playlistPlayer.GetPlaylist(iPlaylist).size() - 1;
+        mediaToPlay = CServiceBroker::GetPlaylistPlayer().GetPlaylist(iPlaylist).size() - 1;
       }
     }
 
@@ -1467,16 +1468,16 @@ bool CGUIMediaWindow::OnPlayAndQueueMedia(const CFileItemPtr &item, std::string 
       m_guiState->SetPlaylistDirectory(m_vecItems->GetPath());
 
     // figure out where we start playback
-    if (g_playlistPlayer.IsShuffled(iPlaylist))
+    if (CServiceBroker::GetPlaylistPlayer().IsShuffled(iPlaylist))
     {
-      int iIndex = g_playlistPlayer.GetPlaylist(iPlaylist).FindOrder(mediaToPlay);
-      g_playlistPlayer.GetPlaylist(iPlaylist).Swap(0, iIndex);
+      int iIndex = CServiceBroker::GetPlaylistPlayer().GetPlaylist(iPlaylist).FindOrder(mediaToPlay);
+      CServiceBroker::GetPlaylistPlayer().GetPlaylist(iPlaylist).Swap(0, iIndex);
       mediaToPlay = 0;
     }
 
     // play
-    g_playlistPlayer.SetCurrentPlaylist(iPlaylist);
-    g_playlistPlayer.Play(mediaToPlay, player);
+    CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(iPlaylist);
+    CServiceBroker::GetPlaylistPlayer().Play(mediaToPlay, player);
   }
   return true;
 }
@@ -1505,13 +1506,13 @@ void CGUIMediaWindow::UpdateFileList()
   if (m_guiState.get() && m_guiState->IsCurrentPlaylistDirectory(m_vecItems->GetPath()))
   {
     int iPlaylist=m_guiState->GetPlaylist();
-    int nSong = g_playlistPlayer.GetCurrentSong();
+    int nSong = CServiceBroker::GetPlaylistPlayer().GetCurrentSong();
     CFileItem playlistItem;
     if (nSong > -1 && iPlaylist > -1)
-      playlistItem=*g_playlistPlayer.GetPlaylist(iPlaylist)[nSong];
+      playlistItem=*CServiceBroker::GetPlaylistPlayer().GetPlaylist(iPlaylist)[nSong];
 
-    g_playlistPlayer.ClearPlaylist(iPlaylist);
-    g_playlistPlayer.Reset();
+    CServiceBroker::GetPlaylistPlayer().ClearPlaylist(iPlaylist);
+    CServiceBroker::GetPlaylistPlayer().Reset();
 
     for (int i = 0; i < m_vecItems->Size(); i++)
     {
@@ -1520,11 +1521,11 @@ void CGUIMediaWindow::UpdateFileList()
         continue;
 
       if (!pItem->IsPlayList() && !pItem->IsZIP() && !pItem->IsRAR())
-        g_playlistPlayer.Add(iPlaylist, pItem);
+        CServiceBroker::GetPlaylistPlayer().Add(iPlaylist, pItem);
 
       if (pItem->GetPath() == playlistItem.GetPath() &&
           pItem->m_lStartOffset == playlistItem.m_lStartOffset)
-        g_playlistPlayer.SetCurrentSong(g_playlistPlayer.GetPlaylist(iPlaylist).size() - 1);
+        CServiceBroker::GetPlaylistPlayer().SetCurrentSong(CServiceBroker::GetPlaylistPlayer().GetPlaylist(iPlaylist).size() - 1);
     }
   }
 }

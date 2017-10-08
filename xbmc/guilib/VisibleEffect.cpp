@@ -51,9 +51,7 @@ CAnimEffect::CAnimEffect(unsigned int delay, unsigned int length, EFFECT_TYPE ef
   m_pTweener = std::shared_ptr<Tweener>(new LinearTweener());
 }
 
-CAnimEffect::~CAnimEffect()
-{
-}
+CAnimEffect::~CAnimEffect() = default;
 
 CAnimEffect::CAnimEffect(const CAnimEffect &src)
 {
@@ -405,15 +403,15 @@ CAnimation &CAnimation::operator =(const CAnimation &src)
   {
     CAnimEffect *newEffect = NULL;
     if (src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_FADE)
-      newEffect = new CFadeEffect(*(CFadeEffect *)src.m_effects[i]);
+      newEffect = new CFadeEffect(*static_cast<CFadeEffect*>(src.m_effects[i]));
     else if (src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_ZOOM)
-      newEffect = new CZoomEffect(*(CZoomEffect *)src.m_effects[i]);
+      newEffect = new CZoomEffect(*static_cast<CZoomEffect*>(src.m_effects[i]));
     else if (src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_SLIDE)
-      newEffect = new CSlideEffect(*(CSlideEffect *)src.m_effects[i]);
+      newEffect = new CSlideEffect(*static_cast<CSlideEffect*>(src.m_effects[i]));
     else if (src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_ROTATE_X ||
              src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_ROTATE_Y ||
              src.m_effects[i]->GetType() == CAnimEffect::EFFECT_TYPE_ROTATE_Z)
-      newEffect = new CRotateEffect(*(CRotateEffect *)src.m_effects[i]);
+      newEffect = new CRotateEffect(*static_cast<CRotateEffect*>(src.m_effects[i]));
     if (newEffect)
       m_effects.push_back(newEffect);
   }
@@ -440,8 +438,7 @@ void CAnimation::Animate(unsigned int time, bool startAnim)
     m_currentProcess = ANIM_PROCESS_REVERSE;
   }
   // reset the queued state once we've rendered to ensure allocation has occured
-  if (startAnim || m_queuedProcess == ANIM_PROCESS_REVERSE)
-    m_queuedProcess = ANIM_PROCESS_NONE;
+  m_queuedProcess = ANIM_PROCESS_NONE;
 
   // Update our animation process
   if (m_currentProcess == ANIM_PROCESS_NORMAL)
@@ -731,9 +728,7 @@ CScroller& CScroller::operator=(const CScroller &right)
   return *this;
 }
 
-CScroller::~CScroller()
-{
-}
+CScroller::~CScroller() = default;
 
 void CScroller::ScrollTo(float endPos)
 {

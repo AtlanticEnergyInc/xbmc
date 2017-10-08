@@ -20,6 +20,7 @@
 
 #include "GameClient.h"
 #include "GameClientCallbacks.h"
+#include "GameClientHardware.h"
 #include "GameClientInGameSaves.h"
 #include "GameClientJoystick.h"
 #include "GameClientKeyboard.h"
@@ -28,8 +29,8 @@
 #include "addons/AddonManager.h"
 #include "addons/BinaryAddonCache.h"
 #include "cores/AudioEngine/Utils/AEChannelInfo.h"
-#include "dialogs/GUIDialogOK.h"
 #include "filesystem/Directory.h"
+#include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
 #include "games/addons/playback/GameClientRealtimePlayback.h"
 #include "games/addons/playback/GameClientReversiblePlayback.h"
@@ -37,9 +38,12 @@
 #include "games/ports/PortManager.h"
 #include "games/GameServices.h"
 #include "guilib/GUIWindowManager.h"
+#include "guilib/LocalizeStrings.h"
 #include "guilib/WindowIDs.h"
 #include "input/joysticks/JoystickTypes.h"
+#include "input/InputManager.h"
 #include "messaging/ApplicationMessenger.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "peripherals/Peripherals.h"
 #include "profiles/ProfilesManager.h"
 #include "settings/Settings.h"
@@ -47,7 +51,6 @@
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
-#include "Application.h"
 #include "FileItem.h"
 #include "ServiceBroker.h"
 #include "URL.h"
@@ -59,6 +62,7 @@
 
 using namespace KODI;
 using namespace GAME;
+using namespace KODI::MESSAGING;
 
 #define EXTENSION_SEPARATOR          "|"
 #define EXTENSION_WILDCARD           "*"
@@ -68,8 +72,6 @@ using namespace GAME;
 #define GAME_PROPERTY_SUPPORTS_STANDALONE  "supports_standalone"
 #define GAME_PROPERTY_SUPPORTS_KEYBOARD    "supports_keyboard"
 #define GAME_PROPERTY_SUPPORTS_MOUSE       "supports_mouse"
-
-#define INPUT_SCAN_RATE  125 // Hz
 
 // --- NormalizeExtension ------------------------------------------------------
 
@@ -110,7 +112,7 @@ std::unique_ptr<CGameClient> CGameClient::FromExtension(ADDON::CAddonInfo addonI
 
   for (const auto& property : properties)
   {
-    std::string strProperty = CAddonMgr::GetInstance().GetExtValue(ext->configuration, property.c_str());
+    std::string strProperty = CServiceBroker::GetAddonMgr().GetExtValue(ext->configuration, property.c_str());
     if (!strProperty.empty())
       addonInfo.AddExtraInfo(property, strProperty);
   }
@@ -252,7 +254,7 @@ void CGameClient::Unload()
   Destroy();
 }
 
-bool CGameClient::OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGameVideoCallback* video)
+bool CGameClient::OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input)
 {
   if (audio == nullptr || video == nullptr)
     return false;
@@ -260,6 +262,16 @@ bool CGameClient::OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGa
   // Check if we should open in standalone mode
   if (file.GetPath().empty())
     return false;
+
+  // Some cores "succeed" to load the file even if it doesn't exist
+  if (!XFILE::CFile::Exists(file.GetPath()))
+  {
+
+    // Failed to play game
+    // The required files can't be found.
+    HELPERS::ShowOKDialogText(CVariant{ 35210 }, CVariant{ g_localizeStrings.Get(35219) });
+    return false;
+  }
 
   // Resolve special:// URLs
   CURL translatedUrl(CSpecialProtocol::TranslatePath(file.GetPath()));
@@ -292,13 +304,13 @@ bool CGameClient::OpenFile(const CFileItem& file, IGameAudioCallback* audio, IGa
     return false;
   }
 
-  if (!InitializeGameplay(file.GetPath(), audio, video))
+  if (!InitializeGameplay(file.GetPath(), audio, video, input))
     return false;
 
   return true;
 }
 
-bool CGameClient::OpenStandalone(IGameAudioCallback* audio, IGameVideoCallback* video)
+bool CGameClient::OpenStandalone(IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input)
 {
   CLog::Log(LOGDEBUG, "GameClient: Loading %s in standalone mode", ID().c_str());
 
@@ -320,13 +332,13 @@ bool CGameClient::OpenStandalone(IGameAudioCallback* audio, IGameVideoCallback* 
     return false;
   }
 
-  if (!InitializeGameplay(ID(), audio, video))
+  if (!InitializeGameplay(ID(), audio, video, input))
     return false;
 
   return true;
 }
 
-bool CGameClient::InitializeGameplay(const std::string& gamePath, IGameAudioCallback* audio, IGameVideoCallback* video)
+bool CGameClient::InitializeGameplay(const std::string& gamePath, IGameAudioCallback* audio, IGameVideoCallback* video, IGameInputCallback *input)
 {
   if (LoadGameInfo() && NormalizeAudio(audio))
   {
@@ -335,7 +347,7 @@ bool CGameClient::InitializeGameplay(const std::string& gamePath, IGameAudioCall
     m_serializeSize   = GetSerializeSize();
     m_audio           = audio;
     m_video           = video;
-    m_inputRateHandle = CServiceBroker::GetPeripherals().SetEventScanRate(INPUT_SCAN_RATE);
+    m_input           = input;
 
     if (m_bSupportsKeyboard)
       OpenKeyboard();
@@ -428,13 +440,13 @@ void CGameClient::NotifyError(GAME_ERROR error)
   {
     // Failed to play game
     // This game requires the following add-on: %s
-    CGUIDialogOK::ShowAndGetInput(CVariant{ 35210 }, StringUtils::Format(g_localizeStrings.Get(35211).c_str(), missingResource.c_str()));
+    HELPERS::ShowOKDialogText(CVariant{ 35210 }, CVariant{ StringUtils::Format(g_localizeStrings.Get(35211).c_str(), missingResource.c_str()) });
   }
   else
   {
     // Failed to play game
     // The emulator "%s" had an internal error.
-    CGUIDialogOK::ShowAndGetInput(CVariant{ 35210 }, StringUtils::Format(g_localizeStrings.Get(35213).c_str(), Name().c_str()));
+    HELPERS::ShowOKDialogText(CVariant{ 35210 }, CVariant{ StringUtils::Format(g_localizeStrings.Get(35213).c_str(), Name().c_str()) });
   }
 }
 
@@ -451,7 +463,7 @@ std::string CGameClient::GetMissingResource()
     if (StringUtils::StartsWith(strDependencyId, "resource.games"))
     {
       AddonPtr addon;
-      const bool bInstalled = CAddonMgr::GetInstance().GetAddon(strDependencyId, addon);
+      const bool bInstalled = CServiceBroker::GetAddonMgr().GetAddon(strDependencyId, addon);
       if (!bInstalled)
       {
         strAddonId = strDependencyId;
@@ -485,7 +497,7 @@ void CGameClient::ResetPlayback()
   m_playback.reset(new CGameClientRealtimePlayback);
 }
 
-void CGameClient::Reset()
+void CGameClient::Reset(unsigned int port)
 {
   ResetPlayback();
 
@@ -517,6 +529,8 @@ void CGameClient::CloseFile()
 
   ClearPorts();
 
+  m_hardware.reset();
+
   if (m_bSupportsKeyboard)
     CloseKeyboard();
 
@@ -526,19 +540,25 @@ void CGameClient::CloseFile()
   m_bIsPlaying = false;
   m_gamePath.clear();
   m_serializeSize = 0;
-  if (m_inputRateHandle)
-  {
-    m_inputRateHandle->Release();
-    m_inputRateHandle.reset();
-  }
 
   m_audio = nullptr;
   m_video = nullptr;
+  m_input = nullptr;
   m_timing.Reset();
 }
 
 void CGameClient::RunFrame()
 {
+  IGameInputCallback *input;
+
+  {
+    CSingleLock lock(m_critSection);
+    input = m_input;
+  }
+
+  if (input)
+    input->PollInput();
+
   CSingleLock lock(m_critSection);
 
   if (m_bIsPlaying)
@@ -576,7 +596,7 @@ bool CGameClient::OpenPixelStream(GAME_PIXEL_FORMAT format, unsigned int width, 
     break;
   }
 
-  return m_video->OpenPixelStream(pixelFormat, width, height, m_timing.GetFrameRate(), orientation);
+  return m_video->OpenPixelStream(pixelFormat, width, height, orientation);
 }
 
 bool CGameClient::OpenVideoStream(GAME_VIDEO_CODEC codec)
@@ -744,6 +764,10 @@ bool CGameClient::OpenPort(unsigned int port)
   if (m_ports.find(port) != m_ports.end())
     return false;
 
+  // Ensure hardware is open to receive events from the port
+  if (!m_hardware)
+    m_hardware.reset(new CGameClientHardware(this));
+
   ControllerVector controllers = GetControllers();
   if (!controllers.empty())
   {
@@ -757,7 +781,7 @@ bool CGameClient::OpenPort(unsigned int port)
     if (m_bSupportsKeyboard)
       device = PERIPHERALS::PERIPHERAL_JOYSTICK;
 
-    CServiceBroker::GetGameServices().PortManager().OpenPort(m_ports[port].get(), this, port, device);
+    CServiceBroker::GetGameServices().PortManager().OpenPort(m_ports[port].get(), m_hardware.get(), this, port, device);
 
     UpdatePort(port, controller);
 
@@ -795,14 +819,14 @@ void CGameClient::UpdatePort(unsigned int port, const ControllerPtr& controller)
       game_controller controllerStruct;
 
       controllerStruct.controller_id        = strId.c_str();
-      controllerStruct.digital_button_count = controller->Layout().FeatureCount(FEATURE_TYPE::SCALAR, INPUT_TYPE::DIGITAL);
-      controllerStruct.analog_button_count  = controller->Layout().FeatureCount(FEATURE_TYPE::SCALAR, INPUT_TYPE::ANALOG);
-      controllerStruct.analog_stick_count   = controller->Layout().FeatureCount(FEATURE_TYPE::ANALOG_STICK);
-      controllerStruct.accelerometer_count  = controller->Layout().FeatureCount(FEATURE_TYPE::ACCELEROMETER);
+      controllerStruct.digital_button_count = controller->FeatureCount(FEATURE_TYPE::SCALAR, INPUT_TYPE::DIGITAL);
+      controllerStruct.analog_button_count  = controller->FeatureCount(FEATURE_TYPE::SCALAR, INPUT_TYPE::ANALOG);
+      controllerStruct.analog_stick_count   = controller->FeatureCount(FEATURE_TYPE::ANALOG_STICK);
+      controllerStruct.accelerometer_count  = controller->FeatureCount(FEATURE_TYPE::ACCELEROMETER);
       controllerStruct.key_count            = 0; //! @todo
-      controllerStruct.rel_pointer_count    = controller->Layout().FeatureCount(FEATURE_TYPE::RELPOINTER);
-      controllerStruct.abs_pointer_count    = 0; //! @todo
-      controllerStruct.motor_count          = controller->Layout().FeatureCount(FEATURE_TYPE::MOTOR);
+      controllerStruct.rel_pointer_count    = controller->FeatureCount(FEATURE_TYPE::RELPOINTER);
+      controllerStruct.abs_pointer_count    = controller->FeatureCount(FEATURE_TYPE::ABSPOINTER);
+      controllerStruct.motor_count          = controller->FeatureCount(FEATURE_TYPE::MOTOR);
 
       try { m_struct.toAddon.UpdatePort(port, true, &controllerStruct); }
       catch (...) { LogException("UpdatePort()"); }
@@ -817,8 +841,7 @@ void CGameClient::UpdatePort(unsigned int port, const ControllerPtr& controller)
 
 bool CGameClient::AcceptsInput(void) const
 {
-  return g_application.IsAppFocused() &&
-         g_windowManager.GetActiveWindowID() == WINDOW_FULLSCREEN_GAME;
+  return g_windowManager.GetActiveWindowID() == WINDOW_FULLSCREEN_GAME;
 }
 
 void CGameClient::ClearPorts(void)
@@ -883,7 +906,7 @@ bool CGameClient::SetRumble(unsigned int port, const std::string& feature, float
 
 void CGameClient::OpenKeyboard(void)
 {
-  m_keyboard.reset(new CGameClientKeyboard(this, &m_struct.toAddon));
+  m_keyboard.reset(new CGameClientKeyboard(this, &m_struct.toAddon, &CServiceBroker::GetInputManager()));
 }
 
 void CGameClient::CloseKeyboard(void)
@@ -893,7 +916,7 @@ void CGameClient::CloseKeyboard(void)
 
 void CGameClient::OpenMouse(void)
 {
-  m_mouse.reset(new CGameClientMouse(this, &m_struct.toAddon));
+  m_mouse.reset(new CGameClientMouse(this, &m_struct.toAddon, &CServiceBroker::GetInputManager()));
 
   CSingleLock lock(m_critSection);
 

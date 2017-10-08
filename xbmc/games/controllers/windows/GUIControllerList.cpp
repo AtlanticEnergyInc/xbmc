@@ -30,6 +30,8 @@
 #include "addons/AddonManager.h"
 #include "dialogs/GUIDialogYesNo.h"
 #include "games/controllers/Controller.h"
+#include "games/controllers/ControllerFeature.h"
+#include "games/controllers/ControllerLayout.h"
 #include "games/controllers/guicontrols/GUIControllerButton.h"
 #include "games/controllers/guicontrols/GUIGameController.h"
 #include "games/GameServices.h"
@@ -40,6 +42,7 @@
 #include "input/joysticks/JoystickIDs.h"
 #include "messaging/ApplicationMessenger.h"
 #include "peripherals/Peripherals.h"
+#include "utils/StringUtils.h"
 #include "ServiceBroker.h"
 
 using namespace KODI;
@@ -64,7 +67,7 @@ bool CGUIControllerList::Initialize(void)
   if (m_controllerButton)
     m_controllerButton->SetVisible(false);
 
-  CAddonMgr::GetInstance().Events().Subscribe(this, &CGUIControllerList::OnEvent);
+  CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CGUIControllerList::OnEvent);
   Refresh();
 
   return m_controllerList != nullptr &&
@@ -73,7 +76,7 @@ bool CGUIControllerList::Initialize(void)
 
 void CGUIControllerList::Deinitialize(void)
 {
-  CAddonMgr::GetInstance().Events().Unsubscribe(this);
+  CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
 
   CleanupButtons();
 
@@ -95,7 +98,7 @@ bool CGUIControllerList::Refresh(void)
     {
       const ControllerPtr& controller = *it;
 
-      CGUIButtonControl* pButton = new CGUIControllerButton(*m_controllerButton, controller->Label(), buttonId++);
+      CGUIButtonControl* pButton = new CGUIControllerButton(*m_controllerButton, controller->Layout().Label(), buttonId++);
       m_controllerList->AddControl(pButton);
 
       // Just in case
@@ -147,7 +150,8 @@ void CGUIControllerList::ResetController(void)
 
 void CGUIControllerList::OnEvent(const ADDON::AddonEvent& event)
 {
-  if (typeid(event) == typeid(ADDON::AddonEvents::InstalledChanged))
+  if (typeid(event) == typeid(ADDON::AddonEvents::ReInstalled) ||
+      typeid(event) == typeid(ADDON::AddonEvents::UnInstalled))
   {
     using namespace MESSAGING;
     CGUIMessage msg(GUI_MSG_REFRESH_LIST, m_guiWindow->GetID(), CONTROL_CONTROLLER_LIST);
@@ -160,6 +164,21 @@ bool CGUIControllerList::RefreshControllers(void)
   // Get current controllers
   CGameServices& gameServices = CServiceBroker::GetGameServices();
   ControllerVector newControllers = gameServices.GetControllers();
+
+  // Don't show an empty list in the GUI
+  auto HasButtonForFeature = [this](const CControllerFeature &feature)
+    {
+      return m_featureList->HasButton(feature.Type());
+    };
+
+  auto HasButtonForController = [&](const ControllerPtr &controller)
+    {
+      const auto &features = controller->Features();
+      auto it = std::find_if(features.begin(), features.end(), HasButtonForFeature);
+      return it == features.end();
+    };
+
+  newControllers.erase(std::remove_if(newControllers.begin(), newControllers.end(), HasButtonForController), newControllers.end());
 
   // Check for changes
   std::set<std::string> oldControllerIds;
@@ -185,7 +204,7 @@ bool CGUIControllerList::RefreshControllers(void)
         if (i->ID() == DEFAULT_CONTROLLER_ID && j->ID() != DEFAULT_CONTROLLER_ID) return true;
         if (i->ID() != DEFAULT_CONTROLLER_ID && j->ID() == DEFAULT_CONTROLLER_ID) return false;
 
-        return i->Name() < j->Name();
+        return StringUtils::CompareNoCase(i->Layout().Label(), j->Layout().Label()) < 0;
       });
   }
 

@@ -120,14 +120,14 @@ void XBPython::Announce(AnnouncementFlag flag, const char *sender, const char *m
 }
 
 // message all registered callbacks that we started playing
-void XBPython::OnPlayBackStarted()
+void XBPython::OnPlayBackStarted(const CFileItem &file)
 {
   XBMC_TRACE;
   LOCK_AND_COPY(std::vector<PVOID>,tmp,m_vecPlayerCallbackList);
   for (PlayerCallbackList::iterator it = tmp.begin(); (it != tmp.end()); ++it)
   {
     if (CHECK_FOR_ENTRY(m_vecPlayerCallbackList,(*it)))
-      ((IPlayerCallback*)(*it))->OnPlayBackStarted();
+      ((IPlayerCallback*)(*it))->OnPlayBackStarted(file);
   }
 }
 
@@ -176,6 +176,18 @@ void XBPython::OnPlayBackStopped()
   {
     if (CHECK_FOR_ENTRY(m_vecPlayerCallbackList,(*it)))
       ((IPlayerCallback*)(*it))->OnPlayBackStopped();
+  }
+}
+
+// message all registered callbacks that playback stopped due to error
+void XBPython::OnPlayBackError()
+{
+  XBMC_TRACE;
+  LOCK_AND_COPY(std::vector<PVOID>,tmp,m_vecPlayerCallbackList);
+  for (PlayerCallbackList::iterator it = tmp.begin(); (it != tmp.end()); ++it)
+  {
+    if (CHECK_FOR_ENTRY(m_vecPlayerCallbackList,(*it)))
+      ((IPlayerCallback*)(*it))->OnPlayBackError();
   }
 }
 
@@ -696,7 +708,7 @@ void XBPython::PulseGlobalEvent()
 bool XBPython::WaitForEvent(CEvent& hEvent, unsigned int milliseconds)
 {
   // wait for either this event our our global event
-  XbmcThreads::CEventGroup eventGroup(&hEvent, &m_globalEvent, NULL);
+  XbmcThreads::CEventGroup eventGroup{&hEvent, &m_globalEvent};
   CEvent* ret = eventGroup.wait(milliseconds);
   if (ret)
     m_globalEvent.Reset();

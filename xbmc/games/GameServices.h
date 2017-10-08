@@ -31,6 +31,11 @@ namespace PERIPHERALS
 
 namespace KODI
 {
+namespace RETRO
+{
+  class CGUIGameRenderManager;
+}
+
 namespace GAME
 {
   class CControllerManager;
@@ -39,11 +44,10 @@ namespace GAME
   class CGameServices
   {
   public:
-    CGameServices();
+    CGameServices(CControllerManager &controllerManager,
+                  RETRO::CGUIGameRenderManager &renderManager,
+                  PERIPHERALS::CPeripherals &peripheralManager);
     ~CGameServices();
-
-    void Init(PERIPHERALS::CPeripherals& peripheralManager);
-    void Deinit();
 
     ControllerPtr GetController(const std::string& controllerId);
     ControllerPtr GetDefaultController();
@@ -51,8 +55,14 @@ namespace GAME
 
     CPortManager& PortManager();
 
+    RETRO::CGUIGameRenderManager &GameRenderManager() { return m_gameRenderManager; }
+
   private:
-    std::unique_ptr<CControllerManager> m_controllerManager;
+    // Construction parameters
+    CControllerManager &m_controllerManager;
+    RETRO::CGUIGameRenderManager &m_gameRenderManager;
+
+    // Game services
     std::unique_ptr<CPortManager> m_portManager;
   };
 }

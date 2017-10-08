@@ -267,7 +267,7 @@ bool CGUIWindow::Load(TiXmlElement *pRootElement)
     }
     else if (strValue == "depth" && pChild->FirstChild())
     { 
-      float stereo = static_cast<float>(atof(pChild->FirstChild()->Value()));;
+      float stereo = static_cast<float>(atof(pChild->FirstChild()->Value()));
       m_stereo = std::max(-1.f, std::min(1.f, stereo));
     }
     else if (strValue == "controls")
@@ -316,7 +316,7 @@ void CGUIWindow::LoadControl(TiXmlElement* pControl, CGUIControlGroup *pGroup, c
     // if the new control is a group, then add it's controls
     if (pGUIControl->IsGroup())
     {
-      CGUIControlGroup *grp = (CGUIControlGroup *)pGUIControl;
+      CGUIControlGroup *grp = static_cast<CGUIControlGroup*>(pGUIControl);
       TiXmlElement *pSubControl = pControl->FirstChildElement("control");
       CRect grpRect(grp->GetXPosition(), grp->GetYPosition(),
                     grp->GetXPosition() + grp->GetWidth(), grp->GetYPosition() + grp->GetHeight());
@@ -392,7 +392,9 @@ void CGUIWindow::Close_Internal(bool forceClose /*= false*/, int nextWindowID /*
   if (!m_active)
     return;
 
-  forceClose |= (nextWindowID == WINDOW_FULLSCREEN_VIDEO);
+  forceClose |= (nextWindowID == WINDOW_FULLSCREEN_VIDEO ||
+                 nextWindowID == WINDOW_FULLSCREEN_GAME);
+
   if (!forceClose && HasAnimation(ANIM_TYPE_WINDOW_CLOSE))
   {
     if (!m_closing)
@@ -717,7 +719,7 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
     {
       if (message.GetPointer())
       {
-        CGUIControl *control = (CGUIControl *)message.GetPointer();
+        CGUIControl *control = static_cast<CGUIControl*>(message.GetPointer());
         control->AllocResources();
         AddControl(control);
       }
@@ -727,7 +729,7 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
     {
       if (message.GetPointer())
       {
-        CGUIControl *control = (CGUIControl *)message.GetPointer();
+        CGUIControl *control = static_cast<CGUIControl*>(message.GetPointer());
         RemoveControl(control);
         control->FreeResources(true);
         delete control;
@@ -1051,14 +1053,13 @@ bool CGUIWindow::SendMessage(int message, int id, int param1 /* = 0*/, int param
   CGUIMessage msg(message, GetID(), id, param1, param2);
   return OnMessage(msg);
 }
-
+#ifdef _DEBUG
 void CGUIWindow::DumpTextureUse()
 {
-#ifdef _DEBUG
   CLog::Log(LOGDEBUG, "%s for window %u", __FUNCTION__, GetID());
   CGUIControlGroup::DumpTextureUse();
-#endif
 }
+#endif
 
 void CGUIWindow::SetProperty(const std::string &strKey, const CVariant &value)
 {

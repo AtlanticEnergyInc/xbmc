@@ -118,10 +118,10 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
 
     static CAdvancedSettings* getInstance();
 
-    virtual void OnSettingsLoaded() override;
-    virtual void OnSettingsUnloaded() override;
+    void OnSettingsLoaded() override;
+    void OnSettingsUnloaded() override;
 
-    virtual void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+    void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
 
     void Initialize();
     bool Initialized() { return m_initialized; };
@@ -190,7 +190,6 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
     bool m_DXVAForceProcessorRenderer;
     bool m_DXVAAllowHqScaling;
     int  m_videoFpsDetect;
-    int  m_videoBusyDialogDelay_ms;
     bool m_mediacodecForceSoftwareRendering;
 
     std::string m_videoDefaultPlayer;
@@ -279,7 +278,6 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
 
     std::set<std::string> m_vecTokens;
 
-    int m_iEpgLingerTime;           // minutes
     int m_iEpgUpdateCheckInterval;  // seconds
     int m_iEpgCleanupInterval;      // seconds
     int m_iEpgActiveTagCheckInterval; // seconds
@@ -357,14 +355,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
     std::vector<std::string> m_settingsFiles;
     void ParseSettingsFile(const std::string &file);
 
-    float GetDisplayLatency(float refreshrate);
+    float GetLatencyTweak(float refreshrate);
     bool m_initialized;
-
-    //! \brief Returns a list of picture extension for filtering in the GUI
-    std::string GetPictureExtensions() const;
-
-    //! \brief Returns a list of music extension for filtering in the GUI
-    std::string GetMusicExtensions() const;
 
     void SetDebugMode(bool debug);
 
@@ -375,6 +367,8 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
     std::string m_videoExtensions;
     std::string m_discStubExtensions;
     std::string m_subtitlesExtensions;
+    std::string m_musicExtensions;
+    std::string m_pictureExtensions;
 
     std::string m_stereoscopicregex_3d;
     std::string m_stereoscopicregex_sbs;
@@ -390,8 +384,6 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
     std::string m_userAgent;
 
   private:
-    std::string m_musicExtensions;
-    std::string m_pictureExtensions;
     void setExtraLogLevel(const std::vector<CVariant> &components);
 };
 

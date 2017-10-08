@@ -58,11 +58,11 @@ class CSong: public ISerializable
 {
 public:
   CSong() ;
-  CSong(CFileItem& item);
-  virtual ~CSong(){};
+  explicit CSong(CFileItem& item);
+  ~CSong() override = default;
   void Clear() ;
   void MergeScrapedSong(const CSong& source, bool override);
-  virtual void Serialize(CVariant& value) const;
+  void Serialize(CVariant& value) const override;
 
   bool operator<(const CSong &song) const
   {

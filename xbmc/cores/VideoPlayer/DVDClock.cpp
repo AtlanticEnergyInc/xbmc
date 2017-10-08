@@ -52,9 +52,7 @@ CDVDClock::CDVDClock()
   m_systemUsed = m_systemFrequency;
 }
 
-CDVDClock::~CDVDClock()
-{
-}
+CDVDClock::~CDVDClock() = default;
 
 // Returns the current absolute clock in units of DVD_TIME_BASE (usually microseconds).
 double CDVDClock::GetAbsoluteClock(bool interpolated /*= true*/)
@@ -121,6 +119,16 @@ void CDVDClock::Pause(bool pause)
   {
     m_paused = false;
     SetSpeed(m_speedAfterPause);
+  }
+}
+
+void CDVDClock::Advance(double time)
+{
+  CSingleLock lock(m_critSection);
+
+  if (m_pauseClock)
+  {
+    m_pauseClock += time / DVD_TIME_BASE * m_systemFrequency;
   }
 }
 

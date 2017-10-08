@@ -20,8 +20,6 @@
 
 #include "system.h"
 
-#ifdef HAS_GL
-
 #include "cores/VideoPlayer/VideoRenderers/ColorManager.h"
 #include "FileItem.h"
 #include "GUIDialogCMSSettings.h"
@@ -57,8 +55,7 @@ CGUIDialogCMSSettings::CGUIDialogCMSSettings()
     : CGUIDialogSettingsManualBase(WINDOW_DIALOG_CMS_OSD_SETTINGS, "DialogSettings.xml")
 { }
 
-CGUIDialogCMSSettings::~CGUIDialogCMSSettings()
-{ }
+CGUIDialogCMSSettings::~CGUIDialogCMSSettings() = default;
 
 void CGUIDialogCMSSettings::SetupView()
 {
@@ -154,6 +151,7 @@ void CGUIDialogCMSSettings::InitializeSettings()
   entries.clear();
   entries.push_back(std::make_pair(36588, CMS_PRIMARIES_AUTO));
   entries.push_back(std::make_pair(36589, CMS_PRIMARIES_BT709));
+  entries.push_back(std::make_pair(36579, CMS_PRIMARIES_BT2020));
   entries.push_back(std::make_pair(36590, CMS_PRIMARIES_170M));
   entries.push_back(std::make_pair(36591, CMS_PRIMARIES_BT470M));
   entries.push_back(std::make_pair(36592, CMS_PRIMARIES_BT470BG));
@@ -242,5 +240,3 @@ void CGUIDialogCMSSettings::Cms3dLutsFiller(
     list.push_back(make_pair(items[i]->GetLabel(), items[i]->GetPath()));
   }
 }
-
-#endif //HAS_GL

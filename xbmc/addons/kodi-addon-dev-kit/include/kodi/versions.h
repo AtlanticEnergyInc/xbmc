@@ -41,8 +41,8 @@
  * overview.
  */
 
-#define ADDON_GLOBAL_VERSION_MAIN                     "1.0.9"
-#define ADDON_GLOBAL_VERSION_MAIN_MIN                 "1.0.2"
+#define ADDON_GLOBAL_VERSION_MAIN                     "1.0.12"
+#define ADDON_GLOBAL_VERSION_MAIN_MIN                 "1.0.12"
 #define ADDON_GLOBAL_VERSION_MAIN_XML_ID              "kodi.binary.global.main"
 #define ADDON_GLOBAL_VERSION_MAIN_DEPENDS             "AddonBase.h" \
                                                       "xbmc_addon_dll.h" \
@@ -50,23 +50,24 @@
                                                       "libXBMC_addon.h" \
                                                       "addon-instance/"
 
-#define ADDON_GLOBAL_VERSION_GENERAL                  "1.0.0"
-#define ADDON_GLOBAL_VERSION_GENERAL_MIN              "1.0.0"
+#define ADDON_GLOBAL_VERSION_GENERAL                  "1.0.3"
+#define ADDON_GLOBAL_VERSION_GENERAL_MIN              "1.0.2"
 #define ADDON_GLOBAL_VERSION_GENERAL_XML_ID           "kodi.binary.global.general"
 #define ADDON_GLOBAL_VERSION_GENERAL_DEPENDS          "General.h"
 
-#define ADDON_GLOBAL_VERSION_GUI                      "5.11.0"
+#define ADDON_GLOBAL_VERSION_GUI                      "5.12.0"
 #define ADDON_GLOBAL_VERSION_GUI_MIN                  "5.10.0"
 #define ADDON_GLOBAL_VERSION_GUI_XML_ID               "kodi.binary.global.gui"
-#define ADDON_GLOBAL_VERSION_GUI_DEPENDS              "libKODI_guilib.h"
+#define ADDON_GLOBAL_VERSION_GUI_DEPENDS              "libKODI_guilib.h" \
+                                                      "gui/"
 
-#define ADDON_GLOBAL_VERSION_AUDIOENGINE              "1.0.0"
-#define ADDON_GLOBAL_VERSION_AUDIOENGINE_MIN          "1.0.0"
+#define ADDON_GLOBAL_VERSION_AUDIOENGINE              "1.0.1"
+#define ADDON_GLOBAL_VERSION_AUDIOENGINE_MIN          "1.0.1"
 #define ADDON_GLOBAL_VERSION_AUDIOENGINE_XML_ID       "kodi.binary.global.audioengine"
 #define ADDON_GLOBAL_VERSION_AUDIOENGINE_DEPENDS      "AudioEngine.h"
 
-#define ADDON_GLOBAL_VERSION_FILESYSTEM               "1.0.0"
-#define ADDON_GLOBAL_VERSION_FILESYSTEM_MIN           "1.0.0"
+#define ADDON_GLOBAL_VERSION_FILESYSTEM               "1.0.2"
+#define ADDON_GLOBAL_VERSION_FILESYSTEM_MIN           "1.0.2"
 #define ADDON_GLOBAL_VERSION_FILESYSTEM_XML_ID        "kodi.binary.global.filesystem"
 #define ADDON_GLOBAL_VERSION_FILESYSTEM_DEPENDS       "Filesystem.h"
 
@@ -80,11 +81,10 @@
 #define ADDON_INSTANCE_VERSION_ADSP_XML_ID            "kodi.binary.instance.adsp"
 #define ADDON_INSTANCE_VERSION_ADSP_DEPENDS           "addon-instance/AudioDSP.h"
 
-#define ADDON_INSTANCE_VERSION_AUDIODECODER           "1.0.1"
-#define ADDON_INSTANCE_VERSION_AUDIODECODER_MIN       "1.0.1"
+#define ADDON_INSTANCE_VERSION_AUDIODECODER           "2.0.0"
+#define ADDON_INSTANCE_VERSION_AUDIODECODER_MIN       "2.0.0"
 #define ADDON_INSTANCE_VERSION_AUDIODECODER_XML_ID    "kodi.binary.instance.audiodecoder"
-#define ADDON_INSTANCE_VERSION_AUDIODECODER_DEPENDS   "kodi_audiodec_dll.h" \
-                                                      "kodi_audiodec_types.h"
+#define ADDON_INSTANCE_VERSION_AUDIODECODER_DEPENDS   "addon-instance/AudioDecoder.h"
 
 #define ADDON_INSTANCE_VERSION_AUDIOENCODER           "2.0.0"
 #define ADDON_INSTANCE_VERSION_AUDIOENCODER_MIN       "2.0.0"
@@ -103,23 +103,19 @@
 #define ADDON_INSTANCE_VERSION_IMAGEDECODER_XML_ID    "kodi.binary.instance.imagedecoder"
 #define ADDON_INSTANCE_VERSION_IMAGEDECODER_DEPENDS   "addon-instance/ImageDecoder.h"
 
-#define ADDON_INSTANCE_VERSION_INPUTSTREAM            "1.0.8"
-#define ADDON_INSTANCE_VERSION_INPUTSTREAM_MIN        "1.0.8"
+#define ADDON_INSTANCE_VERSION_INPUTSTREAM            "2.0.4"
+#define ADDON_INSTANCE_VERSION_INPUTSTREAM_MIN        "2.0.4"
 #define ADDON_INSTANCE_VERSION_INPUTSTREAM_XML_ID     "kodi.binary.instance.inputstream"
-#define ADDON_INSTANCE_VERSION_INPUTSTREAM_DEPENDS    "libKODI_inputstream.h" \
-                                                      "kodi_inputstream_dll.h" \
-                                                      "kodi_inputstream_types.h"
+#define ADDON_INSTANCE_VERSION_INPUTSTREAM_DEPENDS    "addon-instance/Inputstream.h"
 
-#define ADDON_INSTANCE_VERSION_PERIPHERAL             "1.3.3"
-#define ADDON_INSTANCE_VERSION_PERIPHERAL_MIN         "1.3.3"
+#define ADDON_INSTANCE_VERSION_PERIPHERAL             "1.3.4"
+#define ADDON_INSTANCE_VERSION_PERIPHERAL_MIN         "1.3.4"
 #define ADDON_INSTANCE_VERSION_PERIPHERAL_XML_ID      "kodi.binary.instance.peripheral"
-#define ADDON_INSTANCE_VERSION_PERIPHERAL_DEPENDS     "kodi_peripheral_dll.h" \
-                                                      "kodi_peripheral_types.h" \
-                                                      "kodi_peripheral_utils.hpp" \
-                                                      "libKODI_peripheral.h"
+#define ADDON_INSTANCE_VERSION_PERIPHERAL_DEPENDS     "addon-instance/Peripheral.h" \
+                                                      "addon-instance/PeripheralUtils.h"
 
-#define ADDON_INSTANCE_VERSION_PVR                    "5.2.4"
-#define ADDON_INSTANCE_VERSION_PVR_MIN                "5.2.4"
+#define ADDON_INSTANCE_VERSION_PVR                    "5.7.1"
+#define ADDON_INSTANCE_VERSION_PVR_MIN                "5.7.0"
 #define ADDON_INSTANCE_VERSION_PVR_XML_ID             "kodi.binary.instance.pvr"
 #define ADDON_INSTANCE_VERSION_PVR_DEPENDS            "xbmc_pvr_dll.h" \
                                                       "xbmc_pvr_types.h" \
@@ -131,17 +127,22 @@
 #define ADDON_INSTANCE_VERSION_SCREENSAVER_XML_ID     "kodi.binary.instance.screensaver"
 #define ADDON_INSTANCE_VERSION_SCREENSAVER_DEPENDS    "addon-instance/Screensaver.h"
 
-#define ADDON_INSTANCE_VERSION_VFS                    "1.0.1"
-#define ADDON_INSTANCE_VERSION_VFS_MIN                "1.0.1"
+#define ADDON_INSTANCE_VERSION_VFS                    "2.0.0"
+#define ADDON_INSTANCE_VERSION_VFS_MIN                "2.0.0"
 #define ADDON_INSTANCE_VERSION_VFS_XML_ID             "kodi.binary.instance.vfs"
-#define ADDON_INSTANCE_VERSION_VFS_DEPENDS            "kodi_vfs_dll.h" \
-                                                      "kodi_vfs_types.h" \
-                                                      "kodi_vfs_utils.hpp"
+#define ADDON_INSTANCE_VERSION_VFS_DEPENDS            "addon-instance/VFS.h"
 
-#define ADDON_INSTANCE_VERSION_VISUALIZATION          "2.0.0"
+#define ADDON_INSTANCE_VERSION_VISUALIZATION          "2.0.1"
 #define ADDON_INSTANCE_VERSION_VISUALIZATION_MIN      "2.0.0"
 #define ADDON_INSTANCE_VERSION_VISUALIZATION_XML_ID   "kodi.binary.instance.visualization"
 #define ADDON_INSTANCE_VERSION_VISUALIZATION_DEPENDS  "addon-instance/Visualization.h"
+
+#define ADDON_INSTANCE_VERSION_VIDEOCODEC             "1.0.1"
+#define ADDON_INSTANCE_VERSION_VIDEOCODEC_MIN         "1.0.1"
+#define ADDON_INSTANCE_VERSION_VIDEOCODEC_XML_ID      "kodi.binary.instance.videocodec"
+#define ADDON_INSTANCE_VERSION_VIDEOCODEC_DEPENDS     "addon-instance/VideoCodec.h" \
+                                                      "StreamCodec.h" \
+                                                      "StreamCrypto.h"
 
 ///
 /// The currently available instance types for Kodi add-ons
@@ -174,6 +175,7 @@ typedef enum ADDON_TYPE
   ADDON_INSTANCE_VISUALIZATION = 109,
   ADDON_INSTANCE_VFS = 110,
   ADDON_INSTANCE_IMAGEDECODER = 111,
+  ADDON_INSTANCE_VIDEOCODEC = 112,
 } ADDON_TYPE;
 
 #ifdef __cplusplus
@@ -266,6 +268,10 @@ inline const char* GetTypeVersion(int type)
     case ADDON_INSTANCE_VISUALIZATION:
       return ADDON_INSTANCE_VERSION_VISUALIZATION;
 #endif
+#if !defined(BUILD_KODI_ADDON) || defined(ADDON_INSTANCE_VERSION_VIDEOCODEC_USED)
+    case ADDON_INSTANCE_VIDEOCODEC:
+      return ADDON_INSTANCE_VERSION_VIDEOCODEC;
+#endif
   }
   return "0.0.0";
 }
@@ -319,6 +325,8 @@ inline const char* GetTypeMinVersion(int type)
       return ADDON_INSTANCE_VERSION_VFS_MIN;
     case ADDON_INSTANCE_VISUALIZATION:
       return ADDON_INSTANCE_VERSION_VISUALIZATION_MIN;
+    case ADDON_INSTANCE_VIDEOCODEC:
+      return ADDON_INSTANCE_VERSION_VIDEOCODEC_MIN;
   }
   return "0.0.0";
 }
@@ -369,6 +377,8 @@ inline const char* GetTypeName(int type)
       return "ScreenSaver";
     case ADDON_INSTANCE_VISUALIZATION:
       return "Visualization";
+    case ADDON_INSTANCE_VIDEOCODEC:
+      return "VideoCodec";
   }
   return "unknown";
 }
@@ -420,6 +430,8 @@ inline int GetTypeId(const char* name)
       return ADDON_INSTANCE_VFS;
     else if (strcmp(name, "visualization") == 0)
       return ADDON_INSTANCE_VISUALIZATION;
+    else if (strcmp(name, "videocodec") == 0)
+      return ADDON_INSTANCE_VIDEOCODEC;
   }
   return -1;
 }

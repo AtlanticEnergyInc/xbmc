@@ -253,9 +253,7 @@ CCdIoSupport::CCdIoSupport()
   m_nStartTrack = 0;
 }
 
-CCdIoSupport::~CCdIoSupport()
-{
-}
+CCdIoSupport::~CCdIoSupport() = default;
 
 bool CCdIoSupport::EjectTray()
 {
@@ -274,7 +272,7 @@ HANDLE CCdIoSupport::OpenCDROM()
   char* source_name = m_cdio->GetDeviceFileName();
   CdIo* cdio = ::cdio_open(source_name, DRIVER_UNKNOWN);
 
-  return (HANDLE) cdio;
+  return reinterpret_cast<HANDLE>(cdio);
 }
 
 HANDLE CCdIoSupport::OpenIMAGE( std::string& strFilename )
@@ -283,7 +281,7 @@ HANDLE CCdIoSupport::OpenIMAGE( std::string& strFilename )
 
   CdIo* cdio = ::cdio_open(strFilename.c_str(), DRIVER_UNKNOWN);
 
-  return (HANDLE) cdio;
+  return reinterpret_cast<HANDLE>(cdio);
 }
 
 INT CCdIoSupport::ReadSector(HANDLE hDevice, DWORD dwSector, LPSTR lpczBuffer)

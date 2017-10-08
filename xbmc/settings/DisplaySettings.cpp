@@ -95,8 +95,7 @@ CDisplaySettings::CDisplaySettings()
   m_resolutionChangeAborted = false;
 }
 
-CDisplaySettings::~CDisplaySettings()
-{ }
+CDisplaySettings::~CDisplaySettings() = default;
 
 CDisplaySettings& CDisplaySettings::GetInstance()
 {
@@ -327,7 +326,7 @@ bool CDisplaySettings::OnSettingChanging(std::shared_ptr<const CSetting> setting
 
     return true;
   }
-#if defined(HAS_GLX)
+#if defined(HAVE_X11)
   else if (settingId == CSettings::SETTING_VIDEOSCREEN_BLANKDISPLAYS)
   {
     g_Windowing.UpdateResolutions();
@@ -721,10 +720,14 @@ void CDisplaySettings::SettingOptionsResolutionsFiller(SettingConstPtr setting, 
 
 void CDisplaySettings::SettingOptionsScreensFiller(SettingConstPtr setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data)
 {
-  if (g_advancedSettings.m_canWindowed)
+  // The user should only be able to disable windowed modes with the canwindowed
+  // setting. When the user sets canwindowed to true but the windowing system
+  // does not support windowed modes, we would just shoot ourselves in the foot
+  // by offering the option.
+  if (g_advancedSettings.m_canWindowed && g_Windowing.CanDoWindowed())
     list.push_back(std::make_pair(g_localizeStrings.Get(242), DM_WINDOWED));
 
-#if defined(HAS_GLX)
+#if defined(HAVE_X11) || defined(HAVE_WAYLAND)
   list.push_back(std::make_pair(g_localizeStrings.Get(244), 0));
 #else
 
@@ -775,7 +778,7 @@ void CDisplaySettings::SettingOptionsPreferredStereoscopicViewModesFiller(Settin
 
 void CDisplaySettings::SettingOptionsMonitorsFiller(SettingConstPtr setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data)
 {
-#if defined(HAS_GLX)
+#if defined(HAVE_X11)
   std::vector<std::string> monitors;
   g_Windowing.GetConnectedOutputs(&monitors);
   std::string currentMonitor = CServiceBroker::GetSettings().GetString(CSettings::SETTING_VIDEOSCREEN_MONITOR);
@@ -787,6 +790,26 @@ void CDisplaySettings::SettingOptionsMonitorsFiller(SettingConstPtr setting, std
       current = monitors[i];
     }
     list.push_back(std::make_pair(monitors[i], monitors[i]));
+  }
+#elif defined(HAVE_WAYLAND)
+  std::vector<std::string> monitors;
+  g_Windowing.GetConnectedOutputs(&monitors);
+  bool foundMonitor = false;
+  std::string currentMonitor = CServiceBroker::GetSettings().GetString(CSettings::SETTING_VIDEOSCREEN_MONITOR);
+  for (auto const& monitor : monitors)
+  {
+    if(monitor == currentMonitor)
+    {
+      foundMonitor = true;
+    }
+    list.push_back(std::make_pair(monitor, monitor));
+  }
+
+  if (!foundMonitor && !current.empty())
+  {
+    // Add current value so no monitor change is triggered when entering the settings screen and
+    // the preferred monitor is preserved
+    list.push_back(std::make_pair(current, current));
   }
 #endif
 }
@@ -818,6 +841,7 @@ void CDisplaySettings::SettingOptionsCmsPrimariesFiller(SettingConstPtr setting,
 {
   list.push_back(std::make_pair(g_localizeStrings.Get(36588), CMS_PRIMARIES_AUTO));
   list.push_back(std::make_pair(g_localizeStrings.Get(36589), CMS_PRIMARIES_BT709));
+  list.push_back(std::make_pair(g_localizeStrings.Get(36579), CMS_PRIMARIES_BT2020));
   list.push_back(std::make_pair(g_localizeStrings.Get(36590), CMS_PRIMARIES_170M));
   list.push_back(std::make_pair(g_localizeStrings.Get(36591), CMS_PRIMARIES_BT470M));
   list.push_back(std::make_pair(g_localizeStrings.Get(36592), CMS_PRIMARIES_BT470BG));

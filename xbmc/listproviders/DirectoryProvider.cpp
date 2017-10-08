@@ -63,10 +63,10 @@ public:
       m_limit(limit),
       m_parentID(parentID)
   { }
-  virtual ~CDirectoryJob() { }
+  ~CDirectoryJob() override = default;
 
-  virtual const char* GetType() const { return "directory"; }
-  virtual bool operator==(const CJob *job) const
+  const char* GetType() const override { return "directory"; }
+  bool operator==(const CJob *job) const override
   {
     if (strcmp(job->GetType(),GetType()) == 0)
     {
@@ -77,7 +77,7 @@ public:
     return false;
   }
 
-  virtual bool DoWork()
+  bool DoWork() override
   {
     CFileItemList items;
     if (CDirectory::GetDirectory(m_url, items, ""))
@@ -289,7 +289,8 @@ void CDirectoryProvider::OnAddonEvent(const ADDON::AddonEvent& event)
   {
     if (typeid(event) == typeid(ADDON::AddonEvents::Enabled) ||
         typeid(event) == typeid(ADDON::AddonEvents::Disabled) ||
-        typeid(event) == typeid(ADDON::AddonEvents::InstalledChanged) ||
+        typeid(event) == typeid(ADDON::AddonEvents::ReInstalled) ||
+        typeid(event) == typeid(ADDON::AddonEvents::UnInstalled) ||
         typeid(event) == typeid(ADDON::AddonEvents::MetadataChanged))
       m_updateState = INVALIDATED;
   }
@@ -336,7 +337,7 @@ void CDirectoryProvider::Reset()
     m_isAnnounced = false;
     CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
     CServiceBroker::GetFavouritesService().Events().Unsubscribe(this);
-    ADDON::CAddonMgr::GetInstance().Events().Unsubscribe(this);
+    CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
     CServiceBroker::GetPVRManager().Events().Unsubscribe(this);
   }
 }
@@ -346,9 +347,9 @@ void CDirectoryProvider::OnJobComplete(unsigned int jobID, bool success, CJob *j
   CSingleLock lock(m_section);
   if (success)
   {
-    m_items = ((CDirectoryJob*)job)->GetItems();
-    m_currentTarget = ((CDirectoryJob*)job)->GetTarget();
-    ((CDirectoryJob*)job)->GetItemTypes(m_itemTypes);
+    m_items = static_cast<CDirectoryJob*>(job)->GetItems();
+    m_currentTarget = static_cast<CDirectoryJob*>(job)->GetTarget();
+    static_cast<CDirectoryJob*>(job)->GetItemTypes(m_itemTypes);
     if (m_updateState == OK)
       m_updateState = DONE;
   }
@@ -448,7 +449,7 @@ bool CDirectoryProvider::UpdateURL()
   {
     m_isAnnounced = true;
     CAnnouncementManager::GetInstance().AddAnnouncer(this);
-    ADDON::CAddonMgr::GetInstance().Events().Subscribe(this, &CDirectoryProvider::OnAddonEvent);
+    CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CDirectoryProvider::OnAddonEvent);
     CServiceBroker::GetPVRManager().Events().Subscribe(this, &CDirectoryProvider::OnPVRManagerEvent);
     CServiceBroker::GetFavouritesService().Events().Subscribe(this, &CDirectoryProvider::OnFavouritesEvent);
   }

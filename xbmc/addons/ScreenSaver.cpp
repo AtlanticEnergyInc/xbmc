@@ -34,8 +34,8 @@ CScreenSaver::CScreenSaver(BinaryAddonBasePtr addonBase)
   m_presets = CSpecialProtocol::TranslatePath(Path());
   m_profile = CSpecialProtocol::TranslatePath(Profile());
 
-  m_struct = {0};
-#ifdef HAS_DX
+  m_struct = {{0}};
+#ifdef TARGET_WINDOWS
   m_struct.props.device = g_Windowing.Get3D11Context();
 #else
   m_struct.props.device = nullptr;
@@ -52,7 +52,7 @@ CScreenSaver::CScreenSaver(BinaryAddonBasePtr addonBase)
   m_struct.toKodi.kodiInstance = this;
 
   /* Open the class "kodi::addon::CInstanceScreensaver" on add-on side */
-  if (!CreateInstance(&m_struct))
+  if (CreateInstance(&m_struct) != ADDON_STATUS_OK)
     CLog::Log(LOGFATAL, "Screensaver: failed to create instance for '%s' and not usable!", ID().c_str());
 }
 

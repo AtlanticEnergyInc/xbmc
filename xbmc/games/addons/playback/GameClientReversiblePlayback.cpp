@@ -64,14 +64,6 @@ CGameClientReversiblePlayback::~CGameClientReversiblePlayback()
   m_gameLoop.Stop();
 }
 
-void CGameClientReversiblePlayback::PauseUnpause()
-{
-  if (GetSpeed() == 0.0)
-    m_gameLoop.SetSpeed(1.0);
-  else
-    m_gameLoop.SetSpeed(0.0);
-}
-
 void CGameClientReversiblePlayback::SeekTimeMs(unsigned int timeMs)
 {
   const int offsetTimeMs = timeMs - GetTimeMs();
@@ -112,7 +104,12 @@ void CGameClientReversiblePlayback::SetSpeed(double speedFactor)
     m_gameLoop.SetSpeed(speedFactor * REWIND_FACTOR);
 }
 
-std::string CGameClientReversiblePlayback::CreateManualSavestate()
+void CGameClientReversiblePlayback::PauseAsync()
+{
+  m_gameLoop.PauseAsync();
+}
+
+std::string CGameClientReversiblePlayback::CreateSavestate()
 {
   std::string empty;
 
@@ -306,7 +303,7 @@ void CGameClientReversiblePlayback::UpdateMemoryStream()
 
   if (m_gameClient->SerializeSize() > 0)
     bRewindEnabled = CServiceBroker::GetSettings().GetBool(CSettings::SETTING_GAMES_ENABLEREWIND);
-  
+
   if (bRewindEnabled)
   {
     unsigned int rewindBufferSec = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_GAMES_REWINDTIME);

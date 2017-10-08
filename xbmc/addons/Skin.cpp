@@ -28,11 +28,13 @@
 #include "filesystem/File.h"
 #include "filesystem/SpecialProtocol.h"
 #include "guilib/GUIWindowManager.h"
+#include "guilib/LocalizeStrings.h"
 #include "guilib/WindowIDs.h"
 #include "messaging/ApplicationMessenger.h"
 #include "messaging/helpers/DialogHelper.h"
 #include "settings/Settings.h"
 #include "settings/lib/Setting.h"
+#include "threads/Timer.h"
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
@@ -54,6 +56,22 @@ std::shared_ptr<ADDON::CSkinInfo> g_SkinInfo;
 
 namespace ADDON
 {
+
+class CSkinSettingUpdateHandler : private ITimerCallback
+{
+public:
+  CSkinSettingUpdateHandler(CAddon& addon)
+  : m_addon(addon), m_timer(this) {}
+  ~CSkinSettingUpdateHandler() override = default;
+
+  void OnTimeout() override;
+  void TriggerSave();
+private:
+  static constexpr int DELAY = 500;
+
+  CAddon &m_addon;
+  CTimer m_timer;
+};
 
 bool CSkinSetting::Serialize(TiXmlElement* parent) const
 {
@@ -140,16 +158,16 @@ std::unique_ptr<CSkinInfo> CSkinInfo::FromExtension(CAddonInfo addonInfo, const 
   std::vector<RESOLUTION_INFO> resolutions;
 
   ELEMENTS elements;
-  if (CAddonMgr::GetInstance().GetExtElements(ext->configuration, "res", elements))
+  if (CServiceBroker::GetAddonMgr().GetExtElements(ext->configuration, "res", elements))
   {
     for (ELEMENTS::iterator i = elements.begin(); i != elements.end(); ++i)
     {
-      int width = atoi(CAddonMgr::GetInstance().GetExtValue(*i, "@width").c_str());
-      int height = atoi(CAddonMgr::GetInstance().GetExtValue(*i, "@height").c_str());
-      bool defRes = CAddonMgr::GetInstance().GetExtValue(*i, "@default") == "true";
-      std::string folder = CAddonMgr::GetInstance().GetExtValue(*i, "@folder");
+      int width = atoi(CServiceBroker::GetAddonMgr().GetExtValue(*i, "@width").c_str());
+      int height = atoi(CServiceBroker::GetAddonMgr().GetExtValue(*i, "@height").c_str());
+      bool defRes = CServiceBroker::GetAddonMgr().GetExtValue(*i, "@default") == "true";
+      std::string folder = CServiceBroker::GetAddonMgr().GetExtValue(*i, "@folder");
       float aspect = 0;
-      std::string strAspect = CAddonMgr::GetInstance().GetExtValue(*i, "@aspect");
+      std::string strAspect = CServiceBroker::GetAddonMgr().GetExtValue(*i, "@aspect");
       std::vector<std::string> fracs = StringUtils::Split(strAspect, ':');
       if (fracs.size() == 2)
         aspect = (float)(atof(fracs[0].c_str())/atof(fracs[1].c_str()));
@@ -165,22 +183,33 @@ std::unique_ptr<CSkinInfo> CSkinInfo::FromExtension(CAddonInfo addonInfo, const 
   }
   else
   { // no resolutions specified -> backward compatibility
-    std::string defaultWide = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@defaultwideresolution");
+    std::string defaultWide = CServiceBroker::GetAddonMgr().GetExtValue(ext->configuration, "@defaultwideresolution");
     if (defaultWide.empty())
-      defaultWide = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@defaultresolution");
+      defaultWide = CServiceBroker::GetAddonMgr().GetExtValue(ext->configuration, "@defaultresolution");
     TranslateResolution(defaultWide, defaultRes);
   }
 
   float effectsSlowDown(1.f);
-  std::string str = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@effectslowdown");
+  std::string str = CServiceBroker::GetAddonMgr().GetExtValue(ext->configuration, "@effectslowdown");
   if (!str.empty())
     effectsSlowDown = (float)atof(str.c_str());
 
-  bool debugging = CAddonMgr::GetInstance().GetExtValue(ext->configuration, "@debugging") == "true";
+  bool debugging = CServiceBroker::GetAddonMgr().GetExtValue(ext->configuration, "@debugging") == "true";
 
   return std::unique_ptr<CSkinInfo>(new CSkinInfo(std::move(addonInfo), defaultRes, resolutions,
       effectsSlowDown, debugging));
 }
+
+CSkinInfo::CSkinInfo(
+    CAddonInfo addonInfo,
+    const RESOLUTION_INFO& resolution /* = RESOLUTION_INFO() */)
+    : CAddon(std::move(addonInfo)),
+      m_defaultRes(resolution),
+      m_effectsSlowDown(1.f),
+      m_debugging(false)
+  {
+    m_settingsUpdateHandler.reset(new CSkinSettingUpdateHandler(*this));
+  }
 
 CSkinInfo::CSkinInfo(
     CAddonInfo addonInfo,
@@ -194,12 +223,15 @@ CSkinInfo::CSkinInfo(
       m_effectsSlowDown(effectsSlowDown),
       m_debugging(debugging)
 {
+  m_settingsUpdateHandler.reset(new CSkinSettingUpdateHandler(*this));
   LoadStartupWindows(nullptr);
 }
 
+CSkinInfo::~CSkinInfo() = default;
+
 struct closestRes
 {
-  closestRes(const RESOLUTION_INFO &target) : m_target(target) { };
+  explicit closestRes(const RESOLUTION_INFO &target) : m_target(target) { };
   bool operator()(const RESOLUTION_INFO &i, const RESOLUTION_INFO &j)
   {
     float diff = fabs(i.DisplayRatio() - m_target.DisplayRatio()) - fabs(j.DisplayRatio() - m_target.DisplayRatio());
@@ -585,6 +617,7 @@ void CSkinInfo::SetString(int setting, const std::string &label)
   if (it != m_strings.end())
   {
     it->second->value = label;
+    m_settingsUpdateHandler->TriggerSave();
     return;
   }
 
@@ -607,6 +640,7 @@ int CSkinInfo::TranslateBool(const std::string &setting)
 
   int number = m_bools.size() + m_strings.size();
   m_bools.insert(std::pair<int, CSkinSettingBoolPtr>(number, skinBool));
+  m_settingsUpdateHandler->TriggerSave();
 
   return number;
 }
@@ -627,6 +661,7 @@ void CSkinInfo::SetBool(int setting, bool set)
   if (it != m_bools.end())
   {
     it->second->value = set;
+    m_settingsUpdateHandler->TriggerSave();
     return;
   }
 
@@ -642,6 +677,7 @@ void CSkinInfo::Reset(const std::string &setting)
     if (StringUtils::EqualsNoCase(setting, it.second->name))
     {
       it.second->value.clear();
+      m_settingsUpdateHandler->TriggerSave();
       return;
     }
   }
@@ -652,6 +688,7 @@ void CSkinInfo::Reset(const std::string &setting)
     if (StringUtils::EqualsNoCase(setting, it.second->name))
     {
       it.second->value = false;
+      m_settingsUpdateHandler->TriggerSave();
       return;
     }
   }
@@ -665,6 +702,8 @@ void CSkinInfo::Reset()
 
   for (auto& it : m_strings)
     it.second->value.clear();
+
+  m_settingsUpdateHandler->TriggerSave();
 }
 
 std::set<CSkinSettingPtr> CSkinInfo::ParseSettings(const TiXmlElement* rootElement)
@@ -771,6 +810,19 @@ bool CSkinInfo::SettingsToXML(CXBMCTinyXML &doc) const
   }
 
   return true;
+}
+
+void CSkinSettingUpdateHandler::OnTimeout()
+{
+  m_addon.SaveSettings();
+}
+
+void CSkinSettingUpdateHandler::TriggerSave()
+{
+  if (m_timer.IsRunning())
+    m_timer.Restart();
+  else
+    m_timer.Start(DELAY);
 }
 
 } /*namespace ADDON*/

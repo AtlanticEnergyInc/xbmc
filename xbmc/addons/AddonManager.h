@@ -18,16 +18,12 @@
  *  <http://www.gnu.org/licenses/>.
  *
  */
+
 #include "Addon.h"
 #include "AddonDatabase.h"
-#include "AddonEvents.h"
 #include "Repository.h"
 #include "threads/CriticalSection.h"
 #include "utils/EventStream.h"
-#include <string>
-#include <vector>
-#include <map>
-#include <deque>
 
 class DllLibCPluff;
 extern "C"
@@ -62,7 +58,7 @@ namespace ADDON
   class IAddonMgrCallback
   {
     public:
-      virtual ~IAddonMgrCallback() {};
+      virtual ~IAddonMgrCallback() = default;
       virtual bool RequestRestart(AddonPtr addon, bool datachanged)=0;
       virtual bool RequestRemoval(AddonPtr addon)=0;
   };
@@ -76,17 +72,16 @@ namespace ADDON
   class CAddonMgr
   {
   public:
-    static CAddonMgr &GetInstance();
     bool ReInit() { DeInit(); return Init(); }
     bool Init();
     void DeInit();
 
     CAddonMgr();
-    CAddonMgr(const CAddonMgr&);
-    CAddonMgr const& operator=(CAddonMgr const&);
+    CAddonMgr(const CAddonMgr&) = delete;
     virtual ~CAddonMgr();
 
     CEventStream<AddonEvent>& Events() { return m_events; }
+    CEventStream<AddonEvent>& UnloadEvents() { return m_unloadEvents; }
 
     IAddonMgrCallback* GetCallbackForType(TYPE type);
     bool RegisterAddonMgrCallback(TYPE type, IAddonMgrCallback* cb);
@@ -100,6 +95,8 @@ namespace ADDON
      \return true if an addon matching the id of the given type is available and is enabled (if enabledOnly is true).
      */
     bool GetAddon(const std::string &id, AddonPtr &addon, const TYPE &type = ADDON_UNKNOWN, bool enabledOnly = true);
+
+    bool HasType(const std::string &id, const TYPE &type);
 
     bool HasAddons(const TYPE &type);
 
@@ -138,6 +135,18 @@ namespace ADDON
      */
     bool GetInstalledBinaryAddons(BINARY_ADDON_LIST& binaryAddonList);
 
+    /*!
+     * @brief To get requested installed binary addon on Kodi
+     *
+     * This function is used by ADDON::CBinaryAddonManager to obtain the add-on
+     * with the given id, regardless the add-on is disabled or enabled.
+     *
+     * @param[in] addonId          Id to get
+     * @param[out] binaryAddon     Addon info returned
+     * @return                     True, if the requested add-on was found, false otherwise
+     */
+    bool GetInstalledBinaryAddon(const std::string& addonId, BINARY_ADDON_LIST_ENTRY& binaryAddon);
+
     /*! Get the installable addon with the highest version. */
     bool FindInstallableById(const std::string& addonId, AddonPtr& addon);
 
@@ -159,13 +168,24 @@ namespace ADDON
      */
     bool FindAddons();
 
-    /*! Unload addon from the system. Returns true if it was unloaded, otherwise false. */
-    bool UnloadAddon(const AddonPtr& addon);
+    /*!
+     * @note: should only be called by AddonInstaller
+     *
+     * Unload addon from the system. Returns true if it was unloaded, otherwise false.
+     */
+    bool UnloadAddon(const std::string& addonId);
 
-    /*! Returns true if the addon was successfully loaded and enabled; otherwise false. */
-    bool ReloadAddon(AddonPtr& addon);
+    /*!
+     * @note: should only be called by AddonInstaller
+     *
+     * Returns true if the addon was successfully loaded and enabled; otherwise false.
+     */
+    bool LoadAddon(const std::string& addonId);
 
-    /*! Hook for clearing internal state after uninstall. */
+    /*! @note: should only be called by AddonInstaller
+     *
+     * Hook for clearing internal state after uninstall.
+     */
     void OnPostUnInstall(const std::string& id);
 
     /*! \brief Disable an addon. Returns true on success, false on failure. */
@@ -260,24 +280,20 @@ namespace ADDON
      */
     bool AddonsFromRepoXML(const CRepository::DirInfo& repo, const std::string& xml, VECADDONS& addons);
 
-    /*! \brief Start all services addons.
-        \return True is all addons are started, false otherwise
-    */
-    bool StartServices(const bool beforelogin);
-    /*! \brief Stop all services addons.
-    */
-    void StopServices(const bool onlylogin);
-
     bool ServicesHasStarted() const;
 
     bool IsCompatible(const IAddon& addon);
+
+    /*! \brief Recursively get dependencies for an add-on
+     */
+    ADDONDEPS GetDepsRecursive(const std::string& id);
 
     static AddonPtr Factory(const cp_plugin_info_t* plugin, TYPE type);
     static bool Factory(const cp_plugin_info_t* plugin, TYPE type, CAddonBuilder& builder, bool ignoreExtensions = false);
     static void FillCpluffMetadata(const cp_plugin_info_t* plugin, CAddonBuilder& builder);
 
   private:
-
+    CAddonMgr& operator=(CAddonMgr const&) = delete;
     /* libcpluff */
     cp_context_t *m_cp_context;
     std::unique_ptr<DllLibCPluff> m_cpluff;
@@ -298,9 +314,9 @@ namespace ADDON
     CCriticalSection m_critSection;
     CAddonDatabase m_database;
     CEventSource<AddonEvent> m_events;
+    CBlockingEventSource<AddonEvent> m_unloadEvents;
     std::set<std::string> m_systemAddons;
     std::set<std::string> m_optionalAddons;
-    bool m_serviceSystemStarted;
   };
 
 }; /* namespace ADDON */

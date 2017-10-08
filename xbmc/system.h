@@ -27,13 +27,7 @@
 /*****************
  * All platforms
  *****************/
-#define HAS_DVD_SWSCALE
-#define HAS_VideoPlayer
 #define HAS_EVENT_SERVER
-#define HAS_SCREENSAVER
-#define HAS_VIDEO_PLAYBACK
-#define HAS_VISUALISATION
-#define HAS_ADSPADDONS
 
 #ifdef HAVE_LIBMICROHTTPD
 #define HAS_WEB_SERVER
@@ -42,7 +36,6 @@
 
 #define HAS_JSONRPC
 
-#define HAS_FILESYSTEM
 #define HAS_FILESYSTEM_CDDA
 
 #ifdef HAVE_LIBSMBCLIENT
@@ -161,20 +154,17 @@
 #define DIRECTINPUT_VERSION 0x0800
 #include "mmsystem.h"
 #include "DInput.h"
+#if defined(TARGET_WINDOWS_DESKTOP)
 #include "DSound.h"
+#endif
 #define DSSPEAKER_USE_DEFAULT DSSPEAKER_STEREO
 #define LPDIRECTSOUND8 LPDIRECTSOUND
 #undef GetFreeSpace
 #include "PlatformInclude.h"
-#ifdef HAS_DX
-#include "d3d9.h"   // On Win32, we're always using DirectX for something, whether it be the actual rendering
 #include "d3d11_1.h"
 #include "dxgi.h"
 #include "d3dcompiler.h"
 #include "directxmath.h"
-#else
-#include <d3d9types.h>
-#endif
 #ifdef HAS_SDL
 #include "SDL\SDL.h"
 #endif
@@ -191,12 +181,18 @@
 #if defined(TARGET_ANDROID)
 #undef HAS_LINUX_EVENTS
 #undef HAS_LIRC
+#define HAS_ZEROCONF
 #endif
 
 // GLES2.0 detected. Dont use GL!
 #ifdef HAVE_LIBGLESV2
 #undef HAS_GL
 #define HAS_GLES 2
+#endif
+
+#ifdef HAVE_LIBGLESV3
+#undef HAS_GLES
+#define HAS_GLES 3
 #endif
 
 #ifdef HAS_DVD_DRIVE

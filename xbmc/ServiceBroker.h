@@ -24,6 +24,9 @@ namespace ADDON {
 class CAddonMgr;
 class CBinaryAddonManager;
 class CBinaryAddonCache;
+class CVFSAddonCache;
+class CServiceAddonManager;
+class CRepositoryUpdater;
 }
 
 namespace ActiveAE {
@@ -51,12 +54,20 @@ class CDataCacheCore;
 class CSettings;
 class IAE;
 class CFavouritesService;
+class CInputManager;
+class CFileExtensionProvider;
 
 namespace KODI
 {
 namespace GAME
 {
+  class CControllerManager;
   class CGameServices;
+}
+
+namespace RETRO
+{
+  class CGUIGameRenderManager;
 }
 }
 
@@ -71,6 +82,7 @@ public:
   static ADDON::CAddonMgr &GetAddonMgr();
   static ADDON::CBinaryAddonManager &GetBinaryAddonManager();
   static ADDON::CBinaryAddonCache &GetBinaryAddonCache();
+  static ADDON::CVFSAddonCache &GetVFSAddonCache();
   static ANNOUNCEMENT::CAnnouncementManager &GetAnnouncementManager();
   static XBPython &GetXBPython();
   static PVR::CPVRManager &GetPVRManager();
@@ -79,8 +91,14 @@ public:
   static CDataCacheCore& GetDataCacheCore();
   static PLAYLIST::CPlayListPlayer& GetPlaylistPlayer();
   static CSettings& GetSettings();
+  static KODI::GAME::CControllerManager& GetGameControllerManager();
   static KODI::GAME::CGameServices& GetGameServices();
+  static KODI::RETRO::CGUIGameRenderManager& GetGameRenderManager();
   static PERIPHERALS::CPeripherals& GetPeripherals();
   static CFavouritesService& GetFavouritesService();
+  static ADDON::CServiceAddonManager& GetServiceAddons();
+  static ADDON::CRepositoryUpdater& GetRepositoryUpdater();
+  static CInputManager& GetInputManager();
+  static CFileExtensionProvider &GetFileExtensionProvider();
   static bool IsBinaryAddonCacheUp();
 };

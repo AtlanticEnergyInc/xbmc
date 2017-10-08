@@ -27,15 +27,14 @@
 class CGLContextEGL : public CGLContext
 {
 public:
-  CGLContextEGL(Display *dpy);
-  virtual ~CGLContextEGL();
+  explicit CGLContextEGL(Display *dpy);
+  ~CGLContextEGL() override;
   bool Refresh(bool force, int screen, Window glWindow, bool &newContext) override;
   void Destroy() override;
   void Detach() override;
   void SetVSync(bool enable) override;
   void SwapBuffers() override;
   void QueryExtensions() override;
-  XVisualInfo* GetVisual();
   EGLDisplay m_eglDisplay;
   EGLSurface m_eglSurface;
   EGLContext m_eglContext;

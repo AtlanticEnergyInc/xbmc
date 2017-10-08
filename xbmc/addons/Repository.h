@@ -76,9 +76,9 @@ namespace ADDON
   class CRepositoryUpdateJob : public CProgressJob
   {
   public:
-    CRepositoryUpdateJob(const RepositoryPtr& repo);
-    virtual ~CRepositoryUpdateJob() {}
-    virtual bool DoWork();
+    explicit CRepositoryUpdateJob(const RepositoryPtr& repo);
+    ~CRepositoryUpdateJob() override = default;
+    bool DoWork() override;
     const RepositoryPtr& GetAddon() const { return m_repo; };
 
   private:

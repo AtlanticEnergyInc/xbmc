@@ -38,6 +38,11 @@ ADDON::CBinaryAddonCache &CServiceBroker::GetBinaryAddonCache()
   return g_application.m_ServiceManager->GetBinaryAddonCache();
 }
 
+ADDON::CVFSAddonCache &CServiceBroker::GetVFSAddonCache()
+{
+  return g_application.m_ServiceManager->GetVFSAddonCache();
+}
+
 ANNOUNCEMENT::CAnnouncementManager &CServiceBroker::GetAnnouncementManager()
 {
   return g_application.m_ServiceManager->GetAnnouncementManager();
@@ -80,9 +85,19 @@ CSettings& CServiceBroker::GetSettings()
   return g_application.m_ServiceManager->GetSettings();
 }
 
+GAME::CControllerManager& CServiceBroker::GetGameControllerManager()
+{
+  return g_application.m_ServiceManager->GetGameControllerManager();
+}
+
 GAME::CGameServices& CServiceBroker::GetGameServices()
 {
   return g_application.m_ServiceManager->GetGameServices();
+}
+
+KODI::RETRO::CGUIGameRenderManager& CServiceBroker::GetGameRenderManager()
+{
+  return g_application.m_ServiceManager->GetGameRenderManager();
 }
 
 PERIPHERALS::CPeripherals& CServiceBroker::GetPeripherals()
@@ -93,6 +108,26 @@ PERIPHERALS::CPeripherals& CServiceBroker::GetPeripherals()
 CFavouritesService& CServiceBroker::GetFavouritesService()
 {
   return g_application.m_ServiceManager->GetFavouritesService();
+}
+
+ADDON::CServiceAddonManager& CServiceBroker::GetServiceAddons()
+{
+  return g_application.m_ServiceManager->GetServiceAddons();
+}
+
+ADDON::CRepositoryUpdater& CServiceBroker::GetRepositoryUpdater()
+{
+  return g_application.m_ServiceManager->GetRepositoryUpdater();
+}
+
+CInputManager& CServiceBroker::GetInputManager()
+{
+  return g_application.m_ServiceManager->GetInputManager();
+}
+
+CFileExtensionProvider& CServiceBroker::GetFileExtensionProvider()
+{
+  return g_application.m_ServiceManager->GetFileExtensionProvider();
 }
 
 bool CServiceBroker::IsBinaryAddonCacheUp()

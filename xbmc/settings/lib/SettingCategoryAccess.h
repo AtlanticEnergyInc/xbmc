@@ -27,32 +27,32 @@
 class CSettingCategoryAccessCondition : public CSettingConditionItem
 {
 public:
-  CSettingCategoryAccessCondition(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingCategoryAccessCondition(CSettingsManager *settingsManager = nullptr)
     : CSettingConditionItem(settingsManager)
   { }
-  virtual ~CSettingCategoryAccessCondition() = default;
+  ~CSettingCategoryAccessCondition() override = default;
 
-  virtual bool Check() const;
+  bool Check() const override;
 };
 
 class CSettingCategoryAccessConditionCombination : public CSettingConditionCombination
 {
 public:
-  CSettingCategoryAccessConditionCombination(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingCategoryAccessConditionCombination(CSettingsManager *settingsManager = nullptr)
     : CSettingConditionCombination(settingsManager)
   { }
-  virtual ~CSettingCategoryAccessConditionCombination() = default;
+  ~CSettingCategoryAccessConditionCombination() override = default;
 
-  virtual bool Check() const;
+  bool Check() const override;
 
 private:
-  virtual CBooleanLogicOperation* newOperation() { return new CSettingCategoryAccessConditionCombination(m_settingsManager); }
-  virtual CBooleanLogicValue* newValue() { return new CSettingCategoryAccessCondition(m_settingsManager); }
+  CBooleanLogicOperation* newOperation() override { return new CSettingCategoryAccessConditionCombination(m_settingsManager); }
+  CBooleanLogicValue* newValue() override { return new CSettingCategoryAccessCondition(m_settingsManager); }
 };
 
 class CSettingCategoryAccess : public CSettingCondition
 {
 public:
-  CSettingCategoryAccess(CSettingsManager *settingsManager = nullptr);
-  virtual ~CSettingCategoryAccess() = default;
+  explicit CSettingCategoryAccess(CSettingsManager *settingsManager = nullptr);
+  ~CSettingCategoryAccess() override = default;
 };

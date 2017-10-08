@@ -43,11 +43,11 @@ public:
       const std::string& dvdLanguageSubtitle,
       const std::set<std::string>& sortTokens);
 
-  virtual bool IsInUse() const;
+  bool IsInUse() const override;
 
-  virtual void OnPostInstall(bool update, bool modal);
+  void OnPostInstall(bool update, bool modal) override;
 
-  virtual bool IsAllowed(const std::string &file) const;
+  bool IsAllowed(const std::string &file) const override;
 
   const CLocale& GetLocale() const { return m_locale; }
 
@@ -64,7 +64,6 @@ public:
   static std::string GetAddonId(const std::string& locale);
 
   static bool FindLegacyLanguage(const std::string &locale, std::string &legacyLanguage);
-  static bool FindLanguageAddonByName(const std::string &legacyLanguage, std::string &addonId, const VECADDONS &languageAddons = VECADDONS());
 
 private:
   CLocale m_locale;

@@ -24,6 +24,7 @@
 #include "GUIPassword.h"
 #include "Util.h"
 #include "addons/AddonManager.h"
+#include "addons/binary-addons/BinaryAddonManager.h"
 #include "addons/BinaryAddonCache.h"
 #include "addons/Skin.h"
 #if defined(TARGET_ANDROID)
@@ -59,7 +60,7 @@ bool AddonHasSettings(const std::string &condition, const std::string &value, Se
     return false;
 
   ADDON::AddonPtr addon;
-  if (!ADDON::CAddonMgr::GetInstance().GetAddon(settingAddon->GetValue(), addon, settingAddon->GetAddonType()) || addon == NULL)
+  if (!CServiceBroker::GetAddonMgr().GetAddon(settingAddon->GetValue(), addon, settingAddon->GetAddonType()) || addon == NULL)
     return false;
 
   if (addon->Type() == ADDON::ADDON_SKIN)
@@ -85,14 +86,7 @@ bool HasPeripherals(const std::string &condition, const std::string &value, Sett
 
 bool HasPeripheralLibraries(const std::string &condition, const std::string &value, SettingConstPtr setting, void *data)
 {
-  using namespace ADDON;
-
-  VECADDONS peripheralAddons;
-
-  CBinaryAddonCache& addonCache = CServiceBroker::GetBinaryAddonCache();
-  addonCache.GetInstalledAddons(peripheralAddons, ADDON_PERIPHERALDLL);
-
-  return !peripheralAddons.empty();
+  return CServiceBroker::GetBinaryAddonManager().HasInstalledAddons(ADDON::ADDON_PERIPHERALDLL);
 }
 
 bool HasRumbleFeature(const std::string &condition, const std::string &value, SettingConstPtr setting, void *data)
@@ -294,16 +288,16 @@ void CSettingConditions::Initialize()
 #ifdef HAVE_X11
   m_simpleConditions.insert("have_x11");
 #endif
+#ifdef HAVE_WAYLAND
+  m_simpleConditions.insert("have_wayland");
+#endif
 #ifdef HAS_GL
   m_simpleConditions.insert("has_gl");
-#endif
-#ifdef HAS_GLX
-  m_simpleConditions.insert("has_glx");
 #endif
 #ifdef HAS_GLES
   m_simpleConditions.insert("has_gles");
 #endif
-#if HAS_GLES == 2
+#if HAS_GLES >= 2
   m_simpleConditions.insert("has_glesv2");
 #endif
 #ifdef HAS_TIME_SERVER
@@ -318,7 +312,7 @@ void CSettingConditions::Initialize()
 #ifdef HAS_ZEROCONF
   m_simpleConditions.insert("has_zeroconf");
 #endif
-#ifdef HAS_OMXPLAYER
+#ifdef TARGET_RASPBERRY_PI
   m_simpleConditions.insert("has_omxplayer");
 #endif
 #ifdef HAVE_LIBVA
@@ -337,11 +331,7 @@ void CSettingConditions::Initialize()
   if (aml_present())
     m_simpleConditions.insert("have_amcodec");
 #endif
-#ifdef TARGET_DARWIN_OSX
-  if (CDarwinUtils::IsSnowLeopard())
-    m_simpleConditions.insert("osxissnowleopard");
-#endif
-#if defined(TARGET_WINDOWS) && defined(HAS_DX)
+#if defined(TARGET_WINDOWS)
   m_simpleConditions.insert("has_dx");
   m_simpleConditions.insert("hasdxva2");
 #endif

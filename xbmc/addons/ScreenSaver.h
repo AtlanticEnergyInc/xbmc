@@ -28,8 +28,8 @@ namespace ADDON
 class CScreenSaver : public IAddonInstanceHandler
 {
 public:
-  CScreenSaver(BinaryAddonBasePtr addonBase);
-  virtual ~CScreenSaver();
+  explicit CScreenSaver(BinaryAddonBasePtr addonBase);
+  ~CScreenSaver() override;
 
   bool Start();
   void Stop();

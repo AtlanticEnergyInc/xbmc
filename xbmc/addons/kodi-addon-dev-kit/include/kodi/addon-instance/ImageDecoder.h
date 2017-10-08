@@ -81,7 +81,7 @@ namespace addon
     /// @param[in] instance             The from Kodi given instance given be
     ///                                 add-on CreateInstance call with instance
     ///                                 id ADDON_INSTANCE_IMAGEDECODER.
-    CInstanceImageDecoder(KODI_HANDLE instance)
+    explicit CInstanceImageDecoder(KODI_HANDLE instance)
       : IAddonInstance(ADDON_INSTANCE_IMAGEDECODER)
     {
       if (CAddonBase::m_interface->globalSingleInstance != nullptr)
@@ -91,7 +91,7 @@ namespace addon
     }
     //--------------------------------------------------------------------------
 
-    virtual ~CInstanceImageDecoder() = default;
+    ~CInstanceImageDecoder() override = default;
 
     //==========================================================================
     /// @brief Initialize an encoder

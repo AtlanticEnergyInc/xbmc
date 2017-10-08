@@ -27,12 +27,12 @@ namespace ADDON
   class CAudioEncoder : public IEncoder, public IAddonInstanceHandler
   {
   public:
-    CAudioEncoder(BinaryAddonBasePtr addonBase);
+    explicit CAudioEncoder(BinaryAddonBasePtr addonBase);
 
     // Child functions related to IEncoder
-    bool Init(AddonToKodiFuncTable_AudioEncoder& callbacks);
-    int Encode(int nNumBytesRead, uint8_t* pbtStream);
-    bool Close();
+    bool Init(AddonToKodiFuncTable_AudioEncoder& callbacks) override;
+    int Encode(int nNumBytesRead, uint8_t* pbtStream) override;
+    bool Close() override;
 
   private:
     AddonInstance_AudioEncoder m_struct;

@@ -46,9 +46,9 @@ public:
   static void SettingOptionsKeyboardLayoutsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void* data);
 
 private:
-  CKeyboardLayoutManager() { }
-  CKeyboardLayoutManager(const CKeyboardLayoutManager&);
-  CKeyboardLayoutManager const& operator=(CKeyboardLayoutManager const&);
+  CKeyboardLayoutManager() = default;
+  CKeyboardLayoutManager(const CKeyboardLayoutManager&) = delete;
+  CKeyboardLayoutManager const& operator=(CKeyboardLayoutManager const&) = delete;
 
   KeyboardLayouts m_layouts;
 };

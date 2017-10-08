@@ -22,7 +22,7 @@
 #include "XBDateTime.h"
 #include "dbwrappers/Database.h"
 
-#include "Epg.h"
+#include "pvr/epg/Epg.h"
 
 namespace PVR
 {
@@ -42,7 +42,7 @@ namespace PVR
     /*!
      * @brief Destroy this instance.
      */
-    virtual ~CPVREpgDatabase(void) = default;
+    ~CPVREpgDatabase(void) override = default;
 
     /*!
      * @brief Open the database.

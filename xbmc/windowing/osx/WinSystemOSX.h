@@ -61,12 +61,10 @@ public:
   virtual bool Show(bool raise = true) override;
   virtual void OnMove(int x, int y) override;
 
-  virtual void EnableSystemScreenSaver(bool bEnable) override;
-  virtual bool IsSystemScreenSaverEnabled() override;
-  virtual void ResetOSScreensaver() override;
-
   virtual void EnableTextInput(bool bEnable) override;
   virtual bool IsTextInputEnabled() override;
+
+  virtual std::string GetClipboardText(void) override;
 
   void Register(IDispResource *resource);
   void Unregister(IDispResource *resource);
@@ -87,10 +85,9 @@ public:
   void* GetCGLContextObj();
   void* GetNSOpenGLContext();
 
-  std::string GetClipboardText(void);
-
-
 protected:
+  virtual std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() override;
+  
   void  HandlePossibleRefreshrateChange();
   void* CreateWindowedContext(void* shareCtx);
   void* CreateFullScreenContext(int screen_index, void* shareCtx);
@@ -110,7 +107,6 @@ protected:
   bool                         m_obscured;
   unsigned int                 m_obscured_timecheck;
 
-  bool                         m_use_system_screensaver;
   bool                         m_can_display_switch;
   bool                         m_movedToOtherScreen;
   int                          m_lastDisplayNr;
